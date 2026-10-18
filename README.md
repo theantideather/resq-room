@@ -33,10 +33,17 @@ in `doctors.json` and shown in the app under "Credits".
 - Doctor Pinch — edouard77 — CC-BY-4.0
 - Doctor Administering Cpr — rwolzinger — CC-BY-4.0
 
-The scanned operating theatre (Charité University Hospital, ChrisRE) is **CC-BY-NC-4.0,
-non commercial only**, and is therefore NOT included in this repository. If you hold a
-licence for it, drop it at `models/operating_room/scene.gltf` and the "Scanned room"
-button will pick it up. Without it the app uses its own built room.
+### Operating theatre
+
+This work is based on "Charité University Hospital - Operating Room"
+(https://sketchfab.com/3d-models/charite-university-hospital-operating-room-9ec46c4d615a4581a235eebfb162f574)
+by ChrisRE (https://sketchfab.com/ChrisRE) licensed under CC-BY-NC-4.0
+(http://creativecommons.org/licenses/by-nc/4.0/).
+
+**That licence permits non-commercial use only.** It is included here and used as the
+default scene. Any commercial use of this repository or the deployed site needs either a
+separate licence from the author or a replacement room under CC-BY. The app's "Scanned
+room" button toggles it; without the files it falls back to the built room.
 
 ## Not medical advice
 
