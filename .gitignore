@@ -1,0 +1,4 @@
+.DS_Store
+node_modules/
+# CC-BY-NC-4.0, non commercial only: not redistributed
+models/operating_room/

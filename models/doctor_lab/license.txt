@@ -1,0 +1,11 @@
+Model Information:
+* title:	Doctor Lab
+* source:	https://sketchfab.com/3d-models/doctor-lab-dd29cf9290c8419e80561221416a8694
+* author:	00amza (https://sketchfab.com/00amza)
+
+Model License:
+* license type:	CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)
+* requirements:	Author must be credited. Commercial use is allowed.
+
+If you use this 3D model in your project be sure to copy paste this credit wherever you share it:
+This work is based on "Doctor Lab" (https://sketchfab.com/3d-models/doctor-lab-dd29cf9290c8419e80561221416a8694) by 00amza (https://sketchfab.com/00amza) licensed under CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)

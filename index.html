@@ -1,0 +1,1984 @@
+<!doctype html>
+<html lang="en-IN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Council chamber</title>
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=Archivo:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --paper:#F6F7F9; --card:#FFFFFF; --ink:#111823; --dim:#5A6577; --line:#DCE0E7; --line-2:#EDEFF3;
+  --teal:#1B3A6B; --agree:#1B3A6B; --partial:#A8761B; --dissent:#6A4FA3; --flag:#B3261E;
+  --sans:"Archivo",system-ui,sans-serif; --mono:"JetBrains Mono",ui-monospace,monospace; --serif:"Source Serif 4",Georgia,serif;
+  --panel:372px;
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;overflow:hidden;background:var(--paper);color:var(--ink);font-family:var(--sans)}
+canvas{display:block;width:100%;height:100%}
+#stage{position:fixed;left:0;top:0;right:var(--panel);bottom:0}
+#bubbles{position:fixed;left:0;top:0;right:var(--panel);bottom:0;pointer-events:none;z-index:5}
+#vignette{position:fixed;left:0;top:0;right:var(--panel);bottom:0;pointer-events:none;z-index:4;
+  background:radial-gradient(ellipse 62% 58% at 50% 54%,rgba(8,16,15,0) 40%,rgba(8,16,15,.30) 78%,rgba(8,16,15,.55) 100%)}
+@media (max-width:1100px){ :root{--panel:0px} #panel{display:none} }
+
+.bubble{position:absolute;transform:translate(-50%,-100%);max-width:330px;min-width:210px;
+  background:var(--card);border:1px solid var(--line);border-top:2px solid var(--dim);
+  padding:11px 13px;font-size:.86rem;line-height:1.45;opacity:0;transition:opacity .3s;
+  box-shadow:0 16px 36px -20px rgba(17,24,35,.5)}
+.bubble.on{opacity:1}
+.bubble.agree{border-top-color:var(--agree)} .bubble.partial{border-top-color:var(--partial)}
+.bubble.dissent{border-top-color:var(--dissent)} .bubble.open{border-top-color:var(--dim)}
+.bubble .who{font-family:var(--mono);font-size:.61rem;letter-spacing:.09em;text-transform:uppercase;
+  color:var(--dim);display:flex;gap:8px;align-items:center;margin-bottom:5px;flex-wrap:wrap}
+.bubble .pill{padding:1px 6px;border:1px solid currentColor;font-size:.56rem}
+.bubble.agree .pill{color:var(--agree)} .bubble.partial .pill{color:var(--partial)}
+.bubble.dissent .pill{color:var(--dissent)} .bubble.open .pill{color:var(--dim)}
+.bubble .tail{position:absolute;left:50%;bottom:-7px;width:12px;height:12px;margin-left:-6px;
+  transform:rotate(45deg);background:var(--card);border-right:1px solid var(--line);border-bottom:1px solid var(--line)}
+.plate{position:absolute;transform:translate(-50%,-100%);white-space:nowrap;text-align:center;
+  background:rgba(255,255,255,.95);border:1px solid rgba(17,24,35,.14);padding:4px 9px 3px;
+  box-shadow:0 10px 22px -12px rgba(10,18,17,.75);transition:border-color .3s,background .3s}
+.plate b{display:block;font-family:var(--sans);font-weight:600;font-size:.74rem;color:var(--ink);line-height:1.15}
+.plate i{display:block;font-style:normal;font-family:var(--mono);font-size:.56rem;letter-spacing:.07em;
+  text-transform:uppercase;color:var(--dim);margin-top:1px}
+.plate::after{content:"";position:absolute;left:50%;top:100%;width:1px;height:16px;
+  background:linear-gradient(180deg,rgba(17,24,35,.45),transparent);transform:translateX(-.5px)}
+.plate.speaking{background:var(--teal);border-color:var(--teal);box-shadow:0 12px 26px -10px rgba(27,58,107,.8)}
+.plate.speaking b{color:#fff}
+.plate.speaking i{color:#bfe3df}
+.plate.speaking::after{background:linear-gradient(180deg,var(--teal),transparent)}
+
+#title{position:fixed;top:15px;left:22px;z-index:9}
+#title h1{font-family:var(--serif);font-weight:400;font-size:1.26rem;margin:0}
+#title span{font-family:var(--mono);font-size:.61rem;color:var(--dim);letter-spacing:.1em}
+#cases{position:fixed;top:14px;left:50%;transform:translateX(-50%);z-index:11;display:flex;gap:6px;
+  background:var(--card);border:1px solid var(--line);padding:5px}
+#cases button{border:0;background:transparent;padding:6px 11px;font-size:.69rem}
+#cases button[aria-pressed="true"]{background:var(--ink);color:var(--paper)}
+
+#casebox{position:fixed;top:66px;left:22px;z-index:9;width:214px;display:flex;flex-direction:column;gap:4px}
+.caseCard{background:var(--card);border:1px solid var(--line);padding:11px 12px;margin-bottom:4px}
+.caseCard b{display:block;font-size:.86rem;margin-bottom:3px}
+.caseCard span{font-size:.74rem;color:var(--dim);line-height:1.45}
+.lab{font-family:var(--mono);font-size:.62rem;padding:4px 8px;border:1px solid var(--line);
+  color:var(--dim);background:var(--card);transition:.35s}
+.lab b{color:var(--ink);font-weight:500}
+.lab.hot{border-color:var(--partial);color:var(--partial);background:#FCF5E9;transform:translateX(5px)}
+
+#hud{position:fixed;left:22px;bottom:16px;right:calc(var(--panel) + 22px);z-index:10;display:grid;gap:8px}
+#axis{position:relative;height:38px;border:1px solid var(--line);background:
+  linear-gradient(90deg,rgba(106,79,163,.14),rgba(94,109,107,.05) 50%,rgba(27,58,107,.16))}
+#axis .lbl{position:absolute;top:-15px;font-family:var(--mono);font-size:.57rem;color:var(--dim)}
+#axis .lbl.l{left:0} #axis .lbl.r{right:0}
+.dot{position:absolute;top:50%;width:25px;height:25px;margin:-12px 0 0 -12px;border-radius:50%;
+  background:var(--card);border:2px solid var(--line);display:grid;place-items:center;
+  font-family:var(--mono);font-size:.53rem;transition:left 1.1s cubic-bezier(.2,.8,.2,1),border-color .6s}
+.dot.agree{border-color:var(--agree)} .dot.partial{border-color:var(--partial)} .dot.dissent{border-color:var(--dissent)}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+button{font:inherit;color:var(--ink);background:var(--card);border:1px solid var(--line);
+  padding:7px 12px;cursor:pointer;font-family:var(--mono);font-size:.7rem}
+button:hover{border-color:var(--ink)}
+button[aria-pressed="true"]{background:var(--ink);color:var(--paper);border-color:var(--ink)}
+.dots{display:flex;gap:4px;margin-left:auto}
+.dots button{width:23px;height:7px;padding:0}
+.dots button[aria-current="true"]{background:var(--teal);border-color:var(--teal)}
+
+#panel{position:fixed;right:0;top:0;bottom:0;width:var(--panel);z-index:12;background:var(--card);
+  border-left:1px solid var(--line);display:flex;flex-direction:column}
+#panel header{padding:15px 17px 11px;border-bottom:1px solid var(--line)}
+#panel header h2{font-family:var(--serif);font-weight:400;font-size:1.15rem;margin:0 0 2px}
+#panel header .st{font-family:var(--mono);font-size:.6rem;letter-spacing:.09em;text-transform:uppercase;color:var(--teal)}
+#panel .scroll{overflow-y:auto;padding:0 17px 18px;flex:1}
+.sec{margin-top:15px}
+.sec h3{font-family:var(--mono);font-size:.59rem;letter-spacing:.11em;text-transform:uppercase;
+  color:var(--dim);margin:0 0 7px;padding-bottom:5px;border-bottom:1px solid var(--line-2)}
+.now{font-size:.86rem;line-height:1.5}
+.ctx{display:grid;gap:5px}
+.ctx div{font-size:.77rem;line-height:1.4;color:var(--dim);display:grid;grid-template-columns:13px 1fr;gap:7px;
+  animation:slip .45s cubic-bezier(.2,.8,.2,1) both}
+.ctx i{font-style:normal;color:var(--teal);font-family:var(--mono);font-size:.67rem}
+@keyframes slip{from{opacity:0;transform:translateX(-7px)}to{opacity:1;transform:none}}
+.args{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+.args .col{border:1px solid var(--line);padding:9px}
+.args h4{margin:0 0 6px;font-size:.68rem;font-family:var(--mono);letter-spacing:.04em;text-transform:uppercase}
+.args .a h4{color:var(--dissent)} .args .b h4{color:var(--agree)}
+.args ul{margin:0;padding-left:14px}
+.args li{font-size:.74rem;line-height:1.4;color:var(--dim);margin-bottom:4px;animation:slip .4s both}
+.state{display:grid;gap:6px}
+.srow{display:grid;grid-template-columns:78px 1fr 30px;gap:8px;align-items:center;font-size:.75rem}
+.srow .bar{height:15px;background:var(--line-2);position:relative;overflow:hidden}
+.srow .bar i{position:absolute;inset:0 auto 0 0;transition:width .9s cubic-bezier(.2,.8,.2,1)}
+.srow .bar i.agree{background:rgba(27,58,107,.75)} .srow .bar i.partial{background:rgba(168,118,27,.7)}
+.srow .bar i.dissent{background:rgba(106,79,163,.65)}
+.srow .n{font-family:var(--mono);font-size:.69rem;color:var(--dim);text-align:right}
+.pairs{display:grid;gap:5px}
+.pair{display:grid;grid-template-columns:1fr auto;gap:8px;font-size:.73rem;color:var(--dim);
+  padding:5px 7px;border:1px solid var(--line-2)}
+.pair b{font-family:var(--mono);font-size:.58rem;letter-spacing:.05em;text-transform:uppercase}
+.pair.agree b{color:var(--agree)} .pair.partial b{color:var(--partial)} .pair.dissent b{color:var(--dissent)}
+.log{display:grid;gap:7px}
+.logline{font-size:.75rem;line-height:1.42;padding-left:9px;border-left:2px solid var(--line);color:var(--dim)}
+.logline.agree{border-left-color:var(--agree)} .logline.partial{border-left-color:var(--partial)}
+.logline.dissent{border-left-color:var(--dissent)} .logline.open{border-left-color:var(--dim)}
+.logline b{display:block;color:var(--ink);font-weight:500;font-size:.77rem}
+.verdictBox{border:1px solid var(--teal);padding:11px;background:#F3F6FB;margin-top:14px;display:none}
+.verdictBox.on{display:block}
+.verdictBox b{display:block;font-family:var(--serif);font-size:1.02rem;font-weight:400;margin-bottom:4px}
+.verdictBox p{margin:0 0 7px;font-size:.77rem;color:var(--dim);line-height:1.45}
+.verdictBox .ds{border-left:2px solid var(--dissent);padding-left:9px;font-size:.75rem;color:#463A80}
+#proc{position:fixed;left:22px;bottom:92px;z-index:11;width:320px;background:var(--card);
+  border:1px solid var(--line);box-shadow:0 18px 40px -24px rgba(17,24,35,.5);display:none}
+#proc.on{display:block}
+#proc h3{margin:0;padding:9px 12px;font-family:var(--mono);font-size:.6rem;letter-spacing:.11em;
+  text-transform:uppercase;color:#fff;background:var(--flag);display:flex;justify-content:space-between}
+#procCanvasWrap{position:relative;height:168px;background:#eef2f1;border-bottom:1px solid var(--line)}
+#procCanvas{width:100%;height:100%;display:block}
+#metro{position:absolute;right:9px;top:9px;display:flex;align-items:center;gap:6px;
+  font-family:var(--mono);font-size:.58rem;color:var(--dim);background:rgba(255,255,255,.85);padding:3px 7px}
+#metro i{width:9px;height:9px;border-radius:50%;background:var(--flag);display:block}
+#procSteps{list-style:none;margin:0;padding:8px 10px;max-height:150px;overflow-y:auto}
+#procSteps li{display:grid;grid-template-columns:18px 1fr;gap:7px;font-size:.76rem;line-height:1.35;
+  padding:4px 2px;color:var(--dim);border-left:2px solid transparent}
+#procSteps li i{font-style:normal;font-family:var(--mono);font-size:.62rem}
+#procSteps li.on{color:var(--ink);border-left-color:var(--flag);background:#FDF0EE}
+#procSteps li.done{opacity:.55}
+#credits{position:fixed;right:calc(var(--panel) + 14px);bottom:16px;z-index:11;max-width:300px;
+  background:var(--card);border:1px solid var(--line);padding:9px 11px;font-size:.62rem;
+  line-height:1.4;color:var(--dim);display:none}
+#credits.on{display:block}
+#credits b{display:block;color:var(--ink);font-size:.64rem;margin-bottom:4px}
+#debateWin{position:fixed;inset:0;z-index:40;background:rgba(244,246,246,.97);display:none;
+  flex-direction:column;padding:26px clamp(20px,5vw,70px) 20px}
+#debateWin.on{display:flex}
+#debateWin h2{font-family:var(--serif);font-weight:400;font-size:1.9rem;margin:0 0 2px}
+#debateWin .sub{font-family:var(--mono);font-size:.68rem;letter-spacing:.1em;color:var(--dim);
+  text-transform:uppercase;margin-bottom:16px}
+#dwClose{position:absolute;top:22px;right:26px}
+#dwBody{flex:1;overflow-y:auto;display:grid;grid-template-columns:minmax(0,1.6fr) minmax(0,1fr);
+  gap:30px;align-content:start}
+@media (max-width:900px){#dwBody{grid-template-columns:1fr}}
+.dwTurn{border-left:3px solid var(--line);padding:0 0 16px 15px;margin-bottom:4px}
+.dwTurn.agree{border-left-color:var(--agree)} .dwTurn.partial{border-left-color:var(--partial)}
+.dwTurn.dissent{border-left-color:var(--dissent)} .dwTurn.open{border-left-color:var(--dim)}
+.dwTurn .h{display:flex;gap:10px;align-items:baseline;flex-wrap:wrap;margin-bottom:4px}
+.dwTurn .h b{font-size:1rem;font-weight:600}
+.dwTurn .h span{font-family:var(--mono);font-size:.63rem;letter-spacing:.07em;text-transform:uppercase;color:var(--dim)}
+.dwTurn .h em{font-style:normal;font-family:var(--mono);font-size:.6rem;padding:1px 6px;border:1px solid currentColor}
+.dwTurn.agree .h em{color:var(--agree)} .dwTurn.partial .h em{color:var(--partial)}
+.dwTurn.dissent .h em{color:var(--dissent)} .dwTurn.open .h em{color:var(--dim)}
+.dwTurn p{margin:0;font-size:1rem;line-height:1.55;max-width:70ch}
+.dwTurn .cites{font-family:var(--mono);font-size:.64rem;color:var(--dim);margin-top:5px}
+.dwSide{display:grid;gap:16px;align-content:start}
+.dwCard{border:1px solid var(--line);background:var(--card);padding:14px}
+.dwCard h3{margin:0 0 8px;font-family:var(--mono);font-size:.6rem;letter-spacing:.11em;
+  text-transform:uppercase;color:var(--dim)}
+.dwCard ol{margin:0;padding-left:17px}
+.dwCard li{font-size:.84rem;line-height:1.45;margin-bottom:5px}
+#callBtn{position:fixed;top:14px;right:calc(var(--panel) + 16px);z-index:13;background:var(--flag);
+  color:#fff;border-color:var(--flag);font-size:.74rem;letter-spacing:.06em;padding:9px 16px}
+#callBtn:hover{background:#8f2d25;border-color:#8f2d25}
+#callBtn.live{animation:callpulse 1.1s infinite}
+@keyframes callpulse{50%{box-shadow:0 0 0 7px rgba(178,58,48,.18)}}
+#dispatch{position:fixed;top:58px;right:calc(var(--panel) + 16px);z-index:13;width:316px;background:var(--card);
+  border:1px solid var(--line);box-shadow:0 20px 44px -22px rgba(17,24,35,.45);display:none}
+#dispatch.on{display:block}
+#dispatch h3{margin:0;padding:9px 12px;background:var(--flag);color:#fff;font-family:var(--mono);
+  font-size:.6rem;letter-spacing:.11em;text-transform:uppercase;display:flex;justify-content:space-between}
+#dispatch .sim{padding:7px 12px;background:#FDF0EE;border-bottom:1px solid var(--line);
+  font-family:var(--mono);font-size:.58rem;color:var(--flag);letter-spacing:.04em}
+#dispSteps{list-style:none;margin:0;padding:8px 12px;max-height:270px;overflow-y:auto}
+#dispSteps li{display:grid;grid-template-columns:15px 1fr;gap:8px;font-size:.76rem;line-height:1.4;
+  padding:5px 0;color:var(--dim);border-bottom:1px solid var(--line-2)}
+#dispSteps li i{font-style:normal;font-family:var(--mono);font-size:.62rem;color:var(--line)}
+#dispSteps li.on{color:var(--ink)} #dispSteps li.on i{color:var(--flag)}
+#dispSteps li.done i{color:var(--agree)}
+#dispSteps li b{display:block;font-weight:500;color:var(--ink)}
+#dispSteps li span.d{display:block;font-size:.71rem}
+#dispFoot{padding:8px 12px;border-top:1px solid var(--line);font-size:.68rem;color:var(--dim)}
+#filmWrap{position:fixed;inset:0;z-index:60;background:#080C14;display:none;place-items:center}
+#filmWrap.on{display:grid}
+#filmCanvas{max-width:100%;max-height:100%;box-shadow:0 30px 90px -30px #000}
+#filmBar{position:fixed;left:0;right:0;bottom:0;z-index:61;display:none;gap:10px;
+  padding:12px clamp(14px,3vw,30px);background:linear-gradient(0deg,rgba(5,16,14,.95),transparent);
+  align-items:center;justify-content:center}
+#filmBar.on{display:flex}
+#filmBar button{background:rgba(255,255,255,.08);color:#eaf2f0;border-color:rgba(255,255,255,.25)}
+#filmBar span{font-family:var(--mono);font-size:.68rem;color:#9fb3ae;letter-spacing:.08em}
+#loading{position:fixed;inset:0;display:grid;place-items:center;background:var(--paper);z-index:50;
+  font-family:var(--mono);font-size:.71rem;color:var(--dim);letter-spacing:.14em;transition:opacity .6s}
+#loading.gone{opacity:0;pointer-events:none}
+</style>
+</head>
+<body>
+<div id="stage"><canvas id="c"></canvas></div>
+<div id="bubbles"></div>
+<div id="vignette"></div>
+
+<div id="title"><h1>Council chamber</h1><span id="stageLabel">ROUND 1</span></div>
+<div id="cases"></div>
+
+<div id="casebox">
+  <div class="caseCard"><b id="casePt"></b><span id="caseTx"></span></div>
+  <div id="labs" style="display:flex;flex-direction:column;gap:4px"></div>
+</div>
+
+<div id="hud">
+  <div class="row">
+    <button id="prev" type="button">Back</button>
+    <button id="play" type="button">Play</button>
+    <button id="next" type="button">Next</button>
+    <button id="orbit" type="button" aria-pressed="false">Orbit</button>
+    <button id="room" type="button" aria-pressed="false">Scanned room</button>
+    <button id="cred" type="button" aria-pressed="false">Credits</button>
+    <button id="dw" type="button">Debate window</button>
+    <button id="dl" type="button">Download report</button>
+    <button id="film" type="button">Play film</button>
+    <button id="rec" type="button">Record film</button>
+    <button id="recv" type="button">Record with voice</button>
+    <div class="dots" id="dots"></div>
+  </div>
+</div>
+
+<aside id="panel">
+  <header><h2>Live deliberation</h2><div class="st" id="panelStage"></div></header>
+  <div class="scroll">
+    <div class="sec"><h3>What is happening</h3><div class="now" id="pNow"></div></div>
+    <div class="sec"><h3>Context being formed</h3><div class="ctx" id="pCtx"></div></div>
+    <div class="sec"><h3>Arguments on the table</h3>
+      <div class="args">
+        <div class="col a"><h4 id="hdA"></h4><ul id="pA"></ul></div>
+        <div class="col b"><h4 id="hdB"></h4><ul id="pB"></ul></div>
+      </div>
+    </div>
+    <div class="sec"><h3>Where each one stands</h3><div class="state" id="pState"></div></div>
+    <div class="sec"><h3>Open disagreement</h3><div class="pairs" id="pPairs"></div></div>
+    <div class="sec"><h3>Exchange log</h3><div class="log" id="pLog"></div></div>
+    <div class="verdictBox" id="pVerdict"></div>
+  </div>
+</aside>
+
+<div id="proc">
+  <h3><span id="procTitle">How to do it</span><span id="procCount"></span></h3>
+  <div id="procCanvasWrap"><canvas id="procCanvas"></canvas>
+    <div id="metro"><i id="metroDot"></i><span>110 / min</span></div></div>
+  <ul id="procSteps"></ul>
+</div>
+<button id="callBtn" type="button">Call ambulance</button>
+<div id="dispatch">
+  <h3><span>Dispatch</span><span id="dispClock">00:00</span></h3>
+  <div class="sim">Simulation. Nothing is sent to any real service.</div>
+  <ul id="dispSteps"></ul>
+  <div id="dispFoot">In a real emergency in India, dial 108.</div>
+</div>
+<div id="credits"></div>
+<div id="debateWin">
+  <button id="dwClose" type="button">Close</button>
+  <h2 id="dwTitle">Deliberation</h2>
+  <div class="sub" id="dwSub"></div>
+  <div id="dwBody"><div id="dwTurns"></div><div class="dwSide" id="dwSide"></div></div>
+</div>
+<div id="filmWrap"><canvas id="filmCanvas" width="1920" height="1080"></canvas></div>
+<div id="filmBar"><span id="filmStatus">Film</span><button id="filmStop" type="button">Close</button></div>
+<div id="loading">BUILDING THE CHAMBER</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
+<script>
+(function(){
+"use strict";
+const $=id=>document.getElementById(id);
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+const ease=x=>{x=clamp(x,0,1);return x<.5?4*x*x*x:1-Math.pow(-2*x+2,3)/2;};
+const STANCE={agree:0x1b3a6b,partial:0xb07314,dissent:0x5b4ba8,open:0x5e6d6b};
+const SEATS=["gen","path","pulm","endo","card"];
+
+/* ================================================================ CASES */
+const CASES=[
+{
+ id:"arrest", tab:"Cardiac arrest",
+ patient:"62 M · collapsed in the waiting area",
+ text:"Unresponsive, not breathing normally, no pulse felt at the carotid. Last seen well four minutes ago. The chair-side team has started compressions.",
+ axis:["treat as a faint","cardiac arrest"],
+ argHead:["Against arrest","For arrest"],
+ roles:{gen:"Emergency medicine",path:"Clinical pharmacology",pulm:"Anaesthesiology",
+        endo:"Critical care",card:"Cardiology"},
+ obs:[["resp","Breathing","occasional gasps"],["pulse","Carotid","none felt"],["aware","Response","none to pain"],
+      ["down","Down time","under 1 min"],["aed","AED","on its way"],["proc","Context","mid procedure, mouth open"]],
+ P0:{gen:.95,path:.8,pulm:.92,endo:.94,card:.96},
+ procedure:{title:"Chest compressions",rate:110,
+   steps:["Check response and breathing, ten seconds, no longer",
+          "Call 108 and send someone for the AED",
+          "Heel of the hand in the centre of the chest, elbows locked",
+          "Push 5 to 6 cm, 100 to 120 a minute, let the chest come all the way back",
+          "Thirty compressions, then two breaths if you are trained",
+          "Change the person compressing every two minutes",
+          "AED on, pads on bare chest, follow the prompts, resume at once"]},
+ verdict:["Cardiac arrest. Compressions started before the council finished",
+   "Agonal gasps are not breathing. The fast path began compressions at nine seconds, and nothing the council said interrupted them.",
+   "Pharmacology blocked the drug box: nothing in a dental emergency kit treats an arrest, and nitrate is never given in one."],
+ stages:[
+  {k:"r1",label:"ROUND 1 · THE COUNCIL AGREES INSTANTLY",
+   now:"Six specialists converge in under a second. There is nothing to debate about whether this is an arrest, so the argument moves straight to how it is being done.",
+   ctx:["Case opened: unresponsive, not breathing normally","Compressions already running on the fast path","108 called"],
+   a:["Agonal gasps can look like breathing"],b:["No response, no pulse, gasping only"],cites:["resp","pulse","aware"],pos:{}},
+  {k:"open",label:"EMERGENCY MEDICINE OPENS",from:"gen",to:"panel",stance:"open",pill:"opens",
+   text:"Unresponsive and not breathing normally is an arrest. Those gasps are agonal, not breathing. Compressions now, AED the moment it arrives, do not stop to feel for a pulse again.",
+   now:"The commonest fatal error in a dental surgery is mistaking agonal gasps for breathing and waiting. The opening statement closes that door.",
+   ctx:["Agonal gasps named as a sign of arrest, not of breathing"],
+   a:[],b:["Gasping is a sign of arrest"],cites:["resp"],pos:{}},
+  {k:"qual",label:"CARDIOLOGY ADDS EVIDENCE",from:"card",to:"gen",stance:"agree",pill:"adds evidence",
+   text:"Quality is the whole game. Five to six centimetres, a hundred to a hundred and twenty a minute, full recoil between compressions, and change over every two minutes before fatigue halves the depth.",
+   now:"Supporting detail that changes survival more than any drug in the room: depth, rate, recoil and a disciplined changeover.",
+   ctx:["Depth 5 to 6 cm","Rate 100 to 120","Full recoil","Changeover every 2 minutes"],
+   a:[],b:["Compression quality drives survival"],cites:[],pos:{}},
+  {k:"air",label:"ANAESTHESIOLOGY PARTLY AGREES",from:"pulm",to:"card",stance:"partial",pill:"partial agreement",
+   text:"Agreed on quality, with one caution. If nobody here is confident ventilating, do compressions only. Hesitating over a mask costs more than the breaths are worth.",
+   now:"This is why the demonstration beside you shows compressions and nothing else. Untrained rescue breaths interrupt the one thing that is working.",
+   ctx:["Compression only CPR confirmed for this room","No pause for rescue breaths"],
+   a:["Poor ventilation attempts interrupt compressions"],b:[],cites:[],pos:{}},
+  {k:"drug",label:"PHARMACOLOGY BLOCKS THE DRUG BOX",from:"path",to:"panel",stance:"dissent",pill:"contraindication",
+   text:"Nothing in the dental emergency kit treats this. Adrenaline here is an anaphylaxis dose, not an arrest dose, and nitrate is never given in an arrest. Hands stay on the chest.",
+   now:"A hold on the instinct to reach for the drug box. In an arrest the kit is a distraction, and one of its drugs would be actively harmful.",
+   ctx:["Emergency kit drugs withheld","Nitrate explicitly excluded in arrest"],
+   a:[],b:["No drug substitutes for compressions"],cites:[],pos:{}},
+  {k:"rev",label:"CRITICAL CARE LOOKS FOR A REVERSIBLE CAUSE",from:"endo",to:"panel",stance:"agree",pill:"adds evidence",
+   text:"While compressions continue, clear the mouth. He arrested mid procedure with the mouth open. Suction, remove the packs and any instrument, and check nothing has gone down the airway.",
+   now:"The one cause specific to a dental chair: an obstructed airway from the procedure itself. Checked without stopping compressions.",
+   ctx:["Mouth cleared, packs and instruments removed","Suction applied between cycles"],
+   a:[],b:["Airway obstruction is reversible and chair specific"],cites:["proc"],pos:{}},
+  {k:"v",label:"VERDICT · CONTINUE, SHOCK WHEN ADVISED",
+   now:"Compressions continue without interruption. The AED analyses, shocks if advised, and compressions resume immediately afterwards. The council never once took hands off the chest.",
+   ctx:["AED analysis at arrival","Resume compressions immediately after any shock","Handover prepared for the ambulance"],
+   a:[],b:["Six of six agree"],cites:["aed"],pos:{}}
+ ]
+},
+{
+ id:"acs", tab:"Chest pain, cardiac",
+ patient:"47 M · mid-procedure",
+ text:"Crushing central chest pain and sweating during a crown preparation. Known hypertension. Record shows sildenafil 50 mg taken at 22:10 last night.",
+ axis:["non-cardiac cause","acute coronary syndrome"],
+ argHead:["Against ACS","For ACS"],
+ roles:{gen:"Emergency medicine",path:"Clinical pharmacology",pulm:"Gastroenterology",
+        endo:"Vascular surgery",card:"Cardiology"},
+ obs:[["pain","Pain","crushing, central"],["rad","Radiation","into left arm"],["sw","Sweating","profuse"],
+      ["bp","BP","132/86"],["pde5","Record","sildenafil 50 mg, 14 h ago"],["ht","History","hypertension"]],
+ P0:{gen:.82,path:.74,pulm:.35,endo:.55,card:.9},
+ procedure:{title:"Chest pain, act now",rate:0,
+   steps:["Stop the procedure, sit him upright, loosen the collar",
+          "Call 108 and ask for a cardiac capable hospital",
+          "Aspirin 300 mg, chewed, unless he is allergic",
+          "Blood pressure, pulse, oxygen saturation, write them down",
+          "No nitrate: he took sildenafil last night",
+          "Oxygen only if saturations fall below 94 per cent",
+          "Send the drug list and the withheld nitrate ahead of him"]},
+ verdict:["Acute coronary syndrome, nitrate withheld",
+   "Aspirin 300 mg chewed at 00:11. Ambulance and a cath lab capable hospital alerted. Nitrate held because of the PDE-5 inhibitor, and the reason written into the handover.",
+   "The pharmacology flag is the whole case: without it the next step in the protocol would have been the wrong one."],
+ stages:[
+  {k:"r1",label:"ROUND 1 · EACH READS THE CASE ALONE",
+   now:"Cardiology and emergency medicine converge on a coronary cause within seconds. Pharmacology is reading the medication record rather than the symptoms.",
+   ctx:["Case opened: chest pain in the chair","Six specialists recruited","Patient record attached"],
+   a:["Reflux and spasm can mimic this"],b:["Crushing central pain with sweating"],cites:[],pos:{}},
+  {k:"open",label:"EMERGENCY MEDICINE OPENS",from:"gen",to:"panel",stance:"open",pill:"opens",
+   text:"Treat as cardiac until proven otherwise. Stop the procedure, sit him upright, aspirin three hundred milligrams chewed unless he is allergic, ambulance now.",
+   now:"The protocol starts before the diagnosis is certain, because the cost of waiting is higher than the cost of being wrong.",
+   ctx:["Procedure stopped, patient sat upright","Aspirin 300 mg chewed","Ambulance requested"],
+   a:[],b:["Treating as cardiac is the safe default"],cites:["pain","sw"],pos:{}},
+  {k:"gi",label:"GASTROENTEROLOGY OFFERS AN ALTERNATIVE",from:"pulm",to:"gen",stance:"dissent",pill:"challenges",
+   text:"Oesophageal spasm presents exactly like this and is far commoner in a dental chair with an anxious patient. I would not close the differential yet.",
+   now:"A genuine alternative is raised. It does not change the immediate treatment but it does change what gets asked next.",
+   ctx:["Oesophageal spasm kept in the differential"],
+   a:["Spasm mimics cardiac pain closely"],b:[],cites:["pain"],pos:{}},
+  {k:"vasc",label:"VASCULAR SURGERY FLAGS A MUST-NOT-MISS",from:"endo",to:"panel",stance:"partial",pill:"keeps it flagged",
+   text:"Low probability, lethal if missed. Ask whether the pain goes through to his back and check the pressure in both arms before anyone gives an anticoagulant.",
+   now:"A rare condition is kept on the list on severity rather than likelihood. This is exactly the finding a majority vote would discard.",
+   ctx:["Aortic dissection flagged, not ruled out","Question added: does the pain go through to the back"],
+   a:["Dissection would change the treatment entirely"],b:[],cites:["rad"],pos:{}},
+  {k:"pde",label:"PHARMACOLOGY RAISES A CONTRAINDICATION",from:"path",to:"panel",stance:"dissent",pill:"contraindication",
+   text:"Stop at the nitrate step. He took sildenafil fourteen hours ago. Nitrate on top of a PDE-5 inhibitor can drop his pressure through the floor. This is a hold, not a suggestion.",
+   now:"The most important contribution of the session, and it comes from reading the record rather than the patient. The protocol's next step would have been dangerous.",
+   ctx:["Nitrate step held","Reason recorded: PDE-5 inhibitor within 24 hours"],
+   a:[],b:["Record confirms sildenafil 14 hours ago"],cites:["pde5"],pos:{}},
+  {k:"ans",label:"CARDIOLOGY ACCEPTS THE HOLD",from:"card",to:"path",stance:"agree",pill:"agrees",
+   text:"Agreed, the nitrate does not go in. Aspirin stands, oxygen only if saturations fall, and the receiving hospital needs to know why the nitrate was withheld.",
+   now:"The hold is accepted without argument and written into the handover, so the receiving team does not simply give the nitrate on arrival.",
+   ctx:["Nitrate withheld and the reason sent ahead","Oxygen only if saturations fall"],
+   a:[],b:["Hold accepted by the whole council"],cites:["bp"],pos:{pulm:.5}},
+  {k:"v",label:"VERDICT · ACS, NITRATE WITHHELD",
+   now:"Acute coronary syndrome at 0.71. Dissection stays flagged at 0.04 because missing it would kill him. The nitrate contraindication reached the dentist before the step that needed it.",
+   ctx:["Cath lab capable hospital alerted","Pre-arrival note includes the withheld nitrate","Dissection remains on the flagged list"],
+   a:[],b:["Five of six agree on a coronary cause"],cites:["pde5"],pos:{}}
+ ]
+},
+{
+ id:"la", tab:"Collapse after local",
+ patient:"32 F · inferior alveolar block",
+ text:"Collapsed two minutes after the injection. Widespread urticaria, swollen lips, audible wheeze, cold peripheries. No previous drug allergy recorded.",
+ axis:["vasovagal or drug effect","anaphylaxis"],
+ argHead:["Against anaphylaxis","For anaphylaxis"],
+ roles:{gen:"Emergency medicine",path:"Clinical pharmacology",pulm:"Anaesthesiology",
+        endo:"Oral surgery",card:"Cardiology"},
+ obs:[["skin","Skin","urticaria, lip swelling"],["air","Airway","audible wheeze"],["bp","BP","78/40"],
+      ["hr","Pulse","128, thready"],["onset","Onset","2 min after injection"],["hist","Allergy history","none recorded"]],
+ P0:{gen:.9,path:.72,pulm:.88,endo:.48,card:.8},
+ procedure:{title:"Anaphylaxis, act now",rate:0,
+   steps:["Stop the procedure, call for help, call 108",
+          "Adrenaline 0.5 mg of 1 in 1000, intramuscular, outer thigh",
+          "Lay flat, raise the legs, do not sit her up",
+          "High flow oxygen if you have it, airway open",
+          "Second adrenaline dose at five minutes if no better",
+          "Record every agent used: latex, chlorhexidine, antibiotic, anaesthetic",
+          "Transfer, then refer to an allergy clinic"]},
+ verdict:["Anaphylaxis. Adrenaline given at two minutes",
+   "Intramuscular adrenaline 0.5 mg of 1 in 1000 into the anterolateral thigh, flat with legs raised, 108 called, second dose ready at five minutes.",
+   "The dissent was answered on the facts rather than dismissed: urticaria and wheeze do not come from an intravascular adrenaline dose."],
+ stages:[
+  {k:"r1",label:"ROUND 1 · EACH READS THE CASE ALONE",
+   now:"Five of six call anaphylaxis immediately. One seat wants the alternatives considered before a drug is pushed.",
+   ctx:["Case opened: collapse two minutes after local anaesthetic","Six specialists recruited"],
+   a:["True allergy to amide local anaesthetic is rare"],b:["Urticaria with wheeze and hypotension"],cites:[],pos:{}},
+  {k:"open",label:"EMERGENCY MEDICINE OPENS",from:"gen",to:"panel",stance:"open",pill:"opens",
+   text:"Skin, airway and circulation are all involved. That is anaphylaxis. Adrenaline, half a milligram of one in a thousand, intramuscular into the outer thigh, now. Flat with the legs up. Call 108.",
+   now:"The opening move is treatment, not diagnosis. Three systems involved after an injection meets the definition, and the drug goes in before the argument finishes.",
+   ctx:["IM adrenaline 0.5 mg of 1 in 1000, anterolateral thigh","Supine with legs raised","108 called"],
+   a:[],b:["Three systems involved at once"],cites:["skin","air","bp"],pos:{}},
+  {k:"ph",label:"PHARMACOLOGY ADDS A CAVEAT",from:"path",to:"gen",stance:"partial",pill:"partial agreement",
+   text:"Give the adrenaline, I am not arguing with that. But the amide itself is rarely the culprit. Latex, chlorhexidine and any antibiotic given beforehand are likelier. Record every agent in the room.",
+   now:"Agreement on the action with a caveat on the cause. Naming the wrong culprit in the notes would follow this patient into every future procedure.",
+   ctx:["All agents in the room recorded: latex, chlorhexidine, antibiotics","Amide anaesthetic not assumed to be the culprit"],
+   a:["Amide anaesthetic allergy is genuinely rare"],b:[],cites:["hist"],pos:{}},
+  {k:"card",label:"CARDIOLOGY ADDS EVIDENCE",from:"card",to:"gen",stance:"agree",pill:"adds evidence",
+   text:"The pulse settles it. A faint is slow and dry. This is fast, thready and hypotensive with urticaria. That is distributive shock, not a vagal event.",
+   now:"The physiology separates the two candidates cleanly: bradycardia and dry skin for a faint, tachycardia and urticaria for anaphylaxis.",
+   ctx:["Tachycardia with hypotension recorded as distributive shock"],
+   a:[],b:["Tachycardia, not the bradycardia of a faint"],cites:["hr","bp"],pos:{}},
+  {k:"dis",label:"ORAL SURGERY HOLDS A DISSENT",from:"endo",to:"panel",stance:"dissent",pill:"holds dissent",
+   text:"I have seen intravascular adrenaline cause a collapse with palpitations that looked like this. I want it considered before we write anaphylaxis into her record for life.",
+   now:"A dissent with real stakes: an anaphylaxis label changes every future dental and surgical encounter this patient has.",
+   ctx:["Intravascular adrenaline raised as an alternative"],
+   a:["Intravascular adrenaline can cause collapse"],b:[],cites:["onset"],pos:{}},
+  {k:"ans",label:"ANAESTHESIOLOGY ANSWERS THE DISSENT",from:"pulm",to:"endo",stance:"dissent",pill:"challenges",
+   text:"Considered and rejected. An intravascular dose gives tachycardia and anxiety. It does not give urticaria and it does not give wheeze. Those two findings are not explicable any other way.",
+   now:"The dissent is answered on evidence rather than overruled by majority. Two findings have no alternative explanation.",
+   ctx:["Intravascular adrenaline excluded: cannot explain urticaria or wheeze"],
+   a:[],b:["Urticaria and wheeze have no other explanation"],cites:["skin","air"],pos:{endo:.7}},
+  {k:"v",label:"VERDICT · ANAPHYLAXIS, TREATED AT TWO MINUTES",
+   now:"Anaphylaxis. Adrenaline was given before the council finished arguing, which is the point of running the fast path and the council separately.",
+   ctx:["Second dose prepared for five minutes","Transfer arranged","Allergy clinic referral with the agent list","Suspected agents recorded, culprit not assumed"],
+   a:[],b:["Six of six agree after the dissent was answered"],cites:[],pos:{}}
+ ]
+},
+{
+ id:"syncope", tab:"Syncope in the chair",
+ patient:"24 F · routine restoration",
+ text:"Fainted during the local anaesthetic injection. Pale and clammy, out for about ten seconds, now awake and talking. Fasting since morning.",
+ axis:["cardiac or metabolic cause","simple vasovagal"],
+ argHead:["Points away from a faint","Points to a faint"],
+ roles:{gen:"Emergency medicine",path:"Oral surgery",pulm:"Anaesthesiology",
+        endo:"Endocrinology",card:"Cardiology"},
+ obs:[["prod","Prodrome","nausea, warmth"],["dur","Out for","~10 s"],["hr","Pulse","48, regular"],
+      ["bp","BP supine","92/58"],["spo2","SpO2","98%"],["glu","Glucose","not checked"],
+      ["rec","Recovery","rapid when laid flat"]],
+ P0:{gen:.82,path:.62,pulm:.78,endo:.42,card:.52},
+ procedure:{title:"What to do now",rate:0,
+   steps:["Lay her flat and raise the legs about thirty centimetres",
+          "Loosen anything tight at the neck, open a window",
+          "Nothing by mouth until she is fully awake and talking",
+          "Capillary glucose before you write any diagnosis",
+          "Pulse and blood pressure lying, then standing",
+          "Observe twenty minutes, then stand her up slowly",
+          "Discharge with an escort, never alone"]},
+ verdict:["Vasovagal syncope, triggered by the injection",
+   "Laid flat with legs raised, recovered in under a minute. Glucose checked at 4.9. Observed twenty minutes, discharged with an escort.",
+   "The dissent changed the discharge: no sitting up quickly, and nobody leaves alone."],
+ stages:[
+  {k:"r1",label:"ROUND 1 · EACH READS THE CASE ALONE",
+   now:"Six specialists read the same handover in parallel. Most call it a simple faint. Two refuse to settle until something is measured.",
+   ctx:["Case opened: collapse in the dental chair","Six specialists recruited","Independent round, no cross-talk"],
+   a:["Fasting since morning","Glucose never checked"],b:["Prodrome before collapse","Recovered flat in seconds"],cites:[],pos:{}},
+  {k:"open",label:"EMERGENCY MEDICINE OPENS",from:"gen",to:"panel",stance:"open",pill:"opens",
+   text:"This is a textbook vasovagal faint. Warning symptoms, bradycardia, out for seconds, awake the moment she was flat. Legs up, nothing by mouth until she is fully alert.",
+   now:"The opening position argues from pattern: prodrome, slow pulse, rapid recovery when supine. That triad is a faint until proven otherwise.",
+   ctx:["Laid flat with legs raised","Nothing by mouth until fully alert"],
+   a:[],b:["Bradycardia fits a vagal faint","Out for seconds, not minutes"],cites:["prod","hr","rec"],pos:{}},
+  {k:"glu",label:"ENDOCRINOLOGY CHALLENGES",from:"endo",to:"gen",stance:"dissent",pill:"challenges",
+   text:"She has not eaten since morning. Hypoglycaemia looks exactly like this and a capillary glucose takes twenty seconds. Do not put the word vasovagal in the notes until it is checked.",
+   now:"A direct challenge to the label, not to the treatment. The point is cheapness: the test that would exclude the dangerous mimic costs twenty seconds.",
+   ctx:["Capillary glucose ordered before any label is written"],
+   a:["Fasted patient, hypoglycaemia indistinguishable on appearance"],b:[],cites:["glu"],pos:{}},
+  {k:"ecg",label:"CARDIOLOGY PARTLY AGREES",from:"card",to:"gen",stance:"partial",pill:"partial agreement",
+   text:"I accept the pattern, with one condition. Ask whether there was any warning at all, whether it happened on standing or on exertion, and whether anyone in the family died suddenly young. Syncope without warning is a different animal.",
+   now:"Partial agreement. Cardiology does not dispute the faint, it disputes closing the question before three red flags are explicitly excluded.",
+   ctx:["Red flags to exclude: no warning, exertional onset, family history of sudden death"],
+   a:["Syncope without warning needs an ECG"],b:["There was a clear prodrome here"],cites:["prod"],pos:{}},
+  {k:"la",label:"ANAESTHESIOLOGY ADDS EVIDENCE",from:"pulm",to:"gen",stance:"agree",pill:"adds evidence",
+   text:"The adrenaline in the local would give palpitations and a fast pulse, not a faint with a pulse of forty eight. The needle is the trigger here, not the drug.",
+   now:"Supporting evidence that also rules something out: the vasoconstrictor in the cartridge cannot explain a bradycardic collapse.",
+   ctx:["Adrenaline in the cartridge excluded as the cause"],
+   a:[],b:["Pulse 48 argues against an adrenaline effect"],cites:["hr"],pos:{}},
+  {k:"dis",label:"ORAL SURGERY HOLDS A DISSENT",from:"path",to:"panel",stance:"dissent",pill:"holds dissent",
+   text:"My objection is about what happens next. Do not sit her up quickly and do not send her home alone. The second faint, on standing, is how people hit their head on the spittoon.",
+   now:"The dissent is about discharge rather than diagnosis. It is the most practical contribution in the exchange.",
+   ctx:["No rapid sitting up","Lying and standing blood pressure before discharge","Discharge only with an escort"],
+   a:["Second faint on standing is the real risk"],b:[],cites:["bp"],pos:{}},
+  {k:"rev",label:"EMERGENCY MEDICINE REVISES",from:"gen",to:"panel",stance:"agree",pill:"revises position",
+   text:"Accepted on both counts. Glucose first, then lying and standing pressure before she goes anywhere, and the red flags written down as negatives.",
+   now:"The opening position is amended rather than abandoned. The diagnosis holds, the process around it tightens.",
+   ctx:["Glucose 4.9 recorded","Lying and standing BP documented","Red flags recorded as negative"],
+   a:[],b:["Glucose normal, so the mimic is excluded"],cites:["glu","bp"],pos:{endo:.72,card:.74}},
+  {k:"v",label:"VERDICT · AGREED, WITH CONDITIONS",
+   now:"Vasovagal syncope triggered by the injection. Treatment did not change at any point in the debate. What changed is that two mimics were excluded on paper and the discharge is now safe.",
+   ctx:["Diagnosis: vasovagal syncope","Hypoglycaemia excluded","Cardiac red flags excluded","Escorted discharge"],
+   a:[],b:["Five of six agree"],cites:[],pos:{},
+   override:[["path","gen","partial"]]}
+ ]
+}];
+let CASE=CASES[0];
+
+/* ================================================================= scene */
+const canvas=$("c");
+const renderer=new THREE.WebGLRenderer({canvas,antialias:true});
+renderer.setPixelRatio(Math.min(devicePixelRatio||1,2));
+renderer.outputEncoding=THREE.sRGBEncoding;
+renderer.toneMapping=THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure=.96;
+renderer.shadowMap.enabled=true; renderer.shadowMap.type=THREE.PCFSoftShadowMap;
+const scene=new THREE.Scene();
+scene.background=new THREE.Color(0xdfe8e2);
+scene.fog=new THREE.Fog(0xe4ebe6,30,70);
+const camera=new THREE.PerspectiveCamera(40,1,.1,140);
+const LOOK=new THREE.Vector3(0,1.75,-1.1);
+const CAM={dist:9.4,yaw:0,pitch:.26,minD:3.6,maxD:22};
+scene.add(new THREE.HemisphereLight(0xf6f3e8,0xc3cfca,.72));
+const key=new THREE.DirectionalLight(0xfff4de,.85);
+key.position.set(5,11,7); key.castShadow=true;
+key.shadow.mapSize.set(2048,2048); key.shadow.bias=-0.0006;
+key.shadow.camera.left=-12;key.shadow.camera.right=12;key.shadow.camera.top=12;key.shadow.camera.bottom=-12;
+scene.add(key);
+const bounce=new THREE.DirectionalLight(0xe8f2f0,.32); bounce.position.set(-6,4,-5); scene.add(bounce);
+
+function tex(w,h,fn){const c=document.createElement("canvas");c.width=w;c.height=h;fn(c.getContext("2d"),w,h);
+  const t=new THREE.CanvasTexture(c);t.anisotropy=8;t.encoding=THREE.sRGBEncoding;return t;}
+
+/* terrazzo, the speckled stone floor of every hospital corridor in India */
+const terrazzo=tex(512,512,(g,w,h)=>{
+  g.fillStyle="#eef1ef";g.fillRect(0,0,w,h);
+  const cols=["#cfd8d4","#b9c6c2","#d9cfc0","#9fb3ae","#e2d9c9"];
+  for(let i=0;i<2400;i++){
+    g.fillStyle=cols[i%cols.length];g.globalAlpha=.5+Math.random()*.4;
+    const x=Math.random()*w,y=Math.random()*h,r=1+Math.random()*4;
+    g.beginPath();
+    for(let k=0;k<5;k++){const a=k/5*6.283;g.lineTo(x+Math.cos(a)*r*(.6+Math.random()*.8),y+Math.sin(a)*r*(.6+Math.random()*.8));}
+    g.closePath();g.fill();
+  }
+  g.globalAlpha=1;g.strokeStyle="#e1e7e4";g.lineWidth=3;
+  for(let i=0;i<=4;i++){g.beginPath();g.moveTo(i*w/4,0);g.lineTo(i*w/4,h);g.stroke();
+    g.beginPath();g.moveTo(0,i*h/4);g.lineTo(w,i*h/4);g.stroke();}
+});
+terrazzo.wrapS=terrazzo.wrapT=THREE.RepeatWrapping; terrazzo.repeat.set(7,7);
+const floor=new THREE.Mesh(new THREE.CircleGeometry(28,72),
+  new THREE.MeshStandardMaterial({map:terrazzo,roughness:.82,metalness:.02}));
+floor.rotation.x=-Math.PI/2; floor.receiveShadow=true; scene.add(floor);
+
+/* ------------------------------------------------------- the room itself
+   Painted mint walls with a cream dado band, a jaali screen, barred windows
+   with hard afternoon sun on the floor, tube lights, a ceiling fan and a row
+   of blue chairs. Built to read as a government hospital day room in Pune. */
+const MINT=0xcfe0d8, CREAM=0xeae3d2, DADO=0x7fa89b, STEEL=0xb9c2c0;
+const wallMat=new THREE.MeshStandardMaterial({color:MINT,roughness:.95});
+const dadoMat=new THREE.MeshStandardMaterial({color:DADO,roughness:.85});
+const creamMat=new THREE.MeshStandardMaterial({color:CREAM,roughness:.9});
+const steelMat=new THREE.MeshStandardMaterial({color:STEEL,roughness:.35,metalness:.7});
+const ROOM={w:30,d:26,h:6.2};
+function wall(w,h,x,y,z,ry){
+  const g=new THREE.Group();
+  const main=new THREE.Mesh(new THREE.PlaneGeometry(w,h),wallMat);
+  main.position.y=h/2; main.receiveShadow=true; g.add(main);
+  const dado=new THREE.Mesh(new THREE.PlaneGeometry(w,1.25),dadoMat);
+  dado.position.set(0,.62,.012); g.add(dado);
+  const band=new THREE.Mesh(new THREE.PlaneGeometry(w,.07),creamMat);
+  band.position.set(0,1.26,.016); g.add(band);
+  const skirt=new THREE.Mesh(new THREE.PlaneGeometry(w,.16),
+    new THREE.MeshStandardMaterial({color:0x5d8278,roughness:.8}));
+  skirt.position.set(0,.08,.018); g.add(skirt);
+  g.position.set(x,y,z); g.rotation.y=ry; scene.add(g); return g;
+}
+wall(ROOM.w,ROOM.h,0,0,-ROOM.d/2,0);
+wall(ROOM.d,ROOM.h,-ROOM.w/2,0,0,Math.PI/2);
+wall(ROOM.d,ROOM.h,ROOM.w/2,0,0,-Math.PI/2);
+const ceiling=new THREE.Mesh(new THREE.PlaneGeometry(ROOM.w,ROOM.d),
+  new THREE.MeshStandardMaterial({color:0xf2f4f1,roughness:.95}));
+ceiling.rotation.x=Math.PI/2; ceiling.position.y=ROOM.h; scene.add(ceiling);
+
+/* jaali screen set into the back wall, lit from behind */
+(function jaali(z,width,height,segs){
+  const white=new THREE.MeshStandardMaterial({color:0xf7f9f6,roughness:.9});
+  const back=new THREE.Mesh(new THREE.PlaneGeometry(width,height),
+    new THREE.MeshBasicMaterial({color:0xfdf6e3}));
+  back.position.set(0,height/2+1.3,z-.28); scene.add(back);
+  const cell=width/segs, th=cell*.16, rows=Math.round(height/cell);
+  const barGeo=new THREE.BoxGeometry(width,th,.1), colGeo=new THREE.BoxGeometry(th,height,.1);
+  for(let i=0;i<=rows;i++){const b=new THREE.Mesh(barGeo,white);b.position.set(0,1.3+i*cell,z);scene.add(b);}
+  for(let i=0;i<=segs;i++){const b=new THREE.Mesh(colGeo,white);b.position.set(-width/2+i*cell,1.3+height/2,z);scene.add(b);}
+  const ringGeo=new THREE.TorusGeometry(cell*.3,th*.42,8,16);
+  for(let y=0;y<rows;y++)for(let x=0;x<segs;x++){
+    const m=new THREE.Mesh(ringGeo,white);m.position.set(-width/2+cell*(x+.5),1.3+cell*(y+.5),z);scene.add(m);}
+})(-ROOM.d/2+.12,11,3.4,10);
+
+/* barred windows on the right wall, and the sun they throw on the floor */
+function window3(x,z,ry){
+  const g=new THREE.Group(); g.position.set(x,0,z); g.rotation.y=ry; scene.add(g);
+  const light=new THREE.Mesh(new THREE.PlaneGeometry(3.1,2.5),
+    new THREE.MeshBasicMaterial({color:0xfff8e6}));
+  light.position.set(0,3.2,.02); g.add(light);
+  const frame=new THREE.Mesh(new THREE.BoxGeometry(3.4,2.8,.12),creamMat);
+  frame.position.set(0,3.2,-.04); g.add(frame);
+  const inner=new THREE.Mesh(new THREE.PlaneGeometry(3.1,2.5),
+    new THREE.MeshBasicMaterial({color:0xfff9ea}));
+  inner.position.set(0,3.2,.05); g.add(inner);
+  const barMat=new THREE.MeshStandardMaterial({color:0x4a5a56,roughness:.6,metalness:.4});
+  for(let i=-3;i<=3;i++){
+    const b=new THREE.Mesh(new THREE.BoxGeometry(.045,2.5,.045),barMat);
+    b.position.set(i*.42,3.2,.08); g.add(b);
+  }
+  const mid=new THREE.Mesh(new THREE.BoxGeometry(3.1,.05,.05),barMat);
+  mid.position.set(0,3.2,.08); g.add(mid);
+}
+window3(ROOM.w/2-.1,-4,-Math.PI/2);
+window3(ROOM.w/2-.1,3,-Math.PI/2);
+const sunTex=tex(256,256,(g,w,h)=>{
+  g.fillStyle="rgba(255,236,180,0)";g.fillRect(0,0,w,h);
+  g.fillStyle="rgba(255,228,160,.85)";g.fillRect(14,14,w-28,h-28);
+  g.globalCompositeOperation="destination-out";
+  g.fillStyle="#000";g.lineWidth=10;
+  for(let i=1;i<7;i++){g.fillRect(14+i*((w-28)/7)-5,14,10,h-28);}
+  g.fillRect(14,h/2-5,w-28,10);
+});
+[[7.4,-4.6],[7.4,2.4]].forEach(([x,z])=>{
+  const patch=new THREE.Mesh(new THREE.PlaneGeometry(5.4,4.2),
+    new THREE.MeshBasicMaterial({map:sunTex,transparent:true,opacity:.75,depthWrite:false}));
+  patch.rotation.x=-Math.PI/2; patch.rotation.z=.3; patch.position.set(x,.02,z); scene.add(patch);
+});
+const sun=new THREE.DirectionalLight(0xffe9c4,.55); sun.position.set(14,7,-2); scene.add(sun);
+
+/* tube lights and the ceiling fan */
+[-5,0,5].forEach(x=>{
+  const housing=new THREE.Mesh(new THREE.BoxGeometry(.3,.12,4.6),creamMat);
+  housing.position.set(x,ROOM.h-.14,-2); scene.add(housing);
+  const tube=new THREE.Mesh(new THREE.CylinderGeometry(.055,.055,4.3,12),
+    new THREE.MeshBasicMaterial({color:0xffffff}));
+  tube.rotation.x=Math.PI/2; tube.position.set(x,ROOM.h-.22,-2); scene.add(tube);
+});
+const fan=new THREE.Group(); fan.position.set(0,ROOM.h-.9,2.2); scene.add(fan);
+const rod=new THREE.Mesh(new THREE.CylinderGeometry(.05,.05,.85,10),steelMat);
+rod.position.y=.42; fan.add(rod);
+const hub=new THREE.Mesh(new THREE.CylinderGeometry(.26,.3,.17,20),
+  new THREE.MeshStandardMaterial({color:0x9fa8a5,roughness:.4,metalness:.55}));
+fan.add(hub);
+const bladeMat=new THREE.MeshStandardMaterial({color:0xdfe5e2,roughness:.5,metalness:.3,side:THREE.DoubleSide});
+for(let i=0;i<3;i++){
+  const b=new THREE.Mesh(new THREE.BoxGeometry(2.3,.035,.42),bladeMat);
+  b.position.set(Math.cos(i*2.094)*1.2,-.03,Math.sin(i*2.094)*1.2);
+  b.rotation.y=-i*2.094; b.rotation.z=.07; fan.add(b);
+}
+
+/* signage, in both the languages on the wall of any hospital here */
+const signTex=tex(1024,256,(g,w,h)=>{
+  g.fillStyle="#0f6e6b";g.fillRect(0,0,w,h);
+  g.fillStyle="#ffffff";g.font="600 92px 'IBM Plex Sans',sans-serif";g.textBaseline="middle";
+  g.fillText("आपातकालीन विभाग",40,86);
+  g.font="500 66px 'IBM Plex Sans',sans-serif";g.fillStyle="#cfe6e3";
+  g.fillText("EMERGENCY DEPARTMENT",40,176);
+  g.fillStyle="#ffffff";
+  g.beginPath();g.moveTo(w-70,h/2);g.lineTo(w-190,h/2-66);g.lineTo(w-190,h/2-26);
+  g.lineTo(w-300,h/2-26);g.lineTo(w-300,h/2+26);g.lineTo(w-190,h/2+26);g.lineTo(w-190,h/2+66);
+  g.closePath();g.fill();
+});
+const sign=new THREE.Mesh(new THREE.PlaneGeometry(5.2,1.3),
+  new THREE.MeshBasicMaterial({map:signTex}));
+sign.position.set(-8.6,3.6,-ROOM.d/2+.09); scene.add(sign);
+const board=new THREE.Mesh(new THREE.PlaneGeometry(3.2,2.1),
+  new THREE.MeshStandardMaterial({color:0x2f5d4f,roughness:.95}));
+board.position.set(9,3.3,-ROOM.d/2+.09); scene.add(board);
+const boardFrame=new THREE.Mesh(new THREE.BoxGeometry(3.4,2.3,.08),
+  new THREE.MeshStandardMaterial({color:0x8a6a3f,roughness:.8}));
+boardFrame.position.set(9,3.3,-ROOM.d/2+.04); scene.add(boardFrame);
+for(let i=0;i<6;i++){
+  const note=new THREE.Mesh(new THREE.PlaneGeometry(.72,.52),
+    new THREE.MeshBasicMaterial({color:[0xfdf6e3,0xffffff,0xfff2cc][i%3]}));
+  note.position.set(8+(i%3)*1, 3.9-Math.floor(i/3)*.8, -ROOM.d/2+.1);
+  note.rotation.z=(Math.random()-.5)*.08; scene.add(note);
+}
+
+/* the green cross and the clock */
+const crossMat=new THREE.MeshStandardMaterial({color:0x1f8a5c,roughness:.5,emissive:0x0c3a26,emissiveIntensity:.5});
+const cv=new THREE.Mesh(new THREE.BoxGeometry(.3,1.15,.09),crossMat);
+cv.position.set(-12.9,3.7,-6); cv.rotation.y=Math.PI/2; scene.add(cv);
+const ch2=new THREE.Mesh(new THREE.BoxGeometry(.09,.3,1.15),crossMat);
+ch2.position.copy(cv.position); scene.add(ch2);
+const clock=new THREE.Mesh(new THREE.CircleGeometry(.52,36),
+  new THREE.MeshStandardMaterial({color:0xfdfdfb,roughness:.5}));
+clock.position.set(-12.88,4,1.5); clock.rotation.y=Math.PI/2; scene.add(clock);
+const rim2=new THREE.Mesh(new THREE.TorusGeometry(.52,.04,10,36),
+  new THREE.MeshStandardMaterial({color:0x33403d,roughness:.4,metalness:.4}));
+rim2.position.copy(clock.position); rim2.rotation.y=Math.PI/2; scene.add(rim2);
+
+/* a row of the blue plastic chairs that line every waiting area */
+function plasticChair(x,z,ry){
+  const g=new THREE.Group(); g.position.set(x,0,z); g.rotation.y=ry;
+  const m=new THREE.MeshStandardMaterial({color:0x2f6ba8,roughness:.6});
+  const seat=new THREE.Mesh(new THREE.BoxGeometry(.56,.08,.5),m);
+  seat.position.y=.46; seat.castShadow=true; g.add(seat);
+  const back=new THREE.Mesh(new THREE.BoxGeometry(.56,.52,.07),m);
+  back.position.set(0,.74,-.22); back.rotation.x=-.12; g.add(back);
+  [[-.24,-.2],[.24,-.2],[-.24,.2],[.24,.2]].forEach(([dx,dz])=>{
+    const leg=new THREE.Mesh(new THREE.CylinderGeometry(.025,.025,.46,8),steelMat);
+    leg.position.set(dx,.23,dz); g.add(leg);
+  });
+  scene.add(g);
+}
+for(let i=0;i<5;i++) plasticChair(-10.5+i*.68,-11.2,0);
+for(let i=0;i<4;i++) plasticChair(10.6,-9+i*.68,-Math.PI/2);
+
+/* trolley, drip stand, oxygen cylinder */
+const trolley=new THREE.Group(); trolley.position.set(-6.4,0,4.4); scene.add(trolley);
+[.78,.38].forEach(y=>{
+  const shelf=new THREE.Mesh(new THREE.BoxGeometry(1.05,.05,.62),steelMat);
+  shelf.position.y=y; shelf.castShadow=true; trolley.add(shelf);
+});
+[[-.46,-.26],[.46,-.26],[-.46,.26],[.46,.26]].forEach(([dx,dz])=>{
+  const leg=new THREE.Mesh(new THREE.CylinderGeometry(.022,.022,.78,8),steelMat);
+  leg.position.set(dx,.39,dz); trolley.add(leg);
+  const caster=new THREE.Mesh(new THREE.SphereGeometry(.045,10,8),
+    new THREE.MeshStandardMaterial({color:0x2b3634,roughness:.7}));
+  caster.position.set(dx,.045,dz); trolley.add(caster);
+});
+const kidney=new THREE.Mesh(new THREE.CylinderGeometry(.17,.14,.07,18),steelMat);
+kidney.position.set(-.2,.84,0); trolley.add(kidney);
+const drip=new THREE.Group(); drip.position.set(6.1,0,4.8); scene.add(drip);
+const pole=new THREE.Mesh(new THREE.CylinderGeometry(.028,.028,2.05,10),steelMat);
+pole.position.y=1.02; drip.add(pole);
+const dripBase=new THREE.Mesh(new THREE.CylinderGeometry(.34,.34,.04,18),steelMat);
+dripBase.position.y=.03; drip.add(dripBase);
+const hook=new THREE.Mesh(new THREE.TorusGeometry(.08,.016,8,16,Math.PI),steelMat);
+hook.position.set(0,2.02,.07); hook.rotation.x=Math.PI/2; drip.add(hook);
+const bag=new THREE.Mesh(new THREE.BoxGeometry(.2,.34,.08),
+  new THREE.MeshStandardMaterial({color:0xdff0ea,roughness:.3,transparent:true,opacity:.85}));
+bag.position.set(0,1.76,.07); drip.add(bag);
+const cyl=new THREE.Mesh(new THREE.CylinderGeometry(.19,.19,1.05,20),
+  new THREE.MeshStandardMaterial({color:0x1f7a4d,roughness:.5,metalness:.2}));
+cyl.position.set(-7.6,.52,-6.6); cyl.castShadow=true; scene.add(cyl);
+const cylTop=new THREE.Mesh(new THREE.CylinderGeometry(.07,.09,.26,12),steelMat);
+cylTop.position.set(-7.6,1.16,-6.6); scene.add(cylTop);
+
+/* everything built so far is the procedural room; group it so the scanned
+   operating room can take its place */
+const PROCROOM=new THREE.Group();
+scene.children.slice().forEach(o=>{ if(o.isMesh||(o.isGroup&&o!==PROCROOM)) PROCROOM.add(o); });
+scene.add(PROCROOM);
+
+/* table */
+const TABLE_R=2.5;
+const table=new THREE.Mesh(new THREE.CylinderGeometry(TABLE_R,TABLE_R*.94,.14,72),
+  new THREE.MeshStandardMaterial({color:0xfbfcfb,roughness:.32,metalness:.04}));
+table.position.y=1.06; table.castShadow=true; table.receiveShadow=true; scene.add(table);
+const tEdge=new THREE.Mesh(new THREE.TorusGeometry(TABLE_R,.033,10,90),
+  new THREE.MeshStandardMaterial({color:0x1b3a6b,roughness:.35,metalness:.4}));
+tEdge.rotation.x=Math.PI/2; tEdge.position.y=1.13; scene.add(tEdge);
+const ped=new THREE.Mesh(new THREE.CylinderGeometry(.5,1,1.06,36),
+  new THREE.MeshStandardMaterial({color:0xe7ecea,roughness:.6}));
+ped.position.y=.53; ped.castShadow=true; scene.add(ped);
+const projector=new THREE.Mesh(new THREE.CylinderGeometry(.33,.5,.1,30),
+  new THREE.MeshStandardMaterial({color:0xdfe6e4,roughness:.4,metalness:.3}));
+projector.position.y=1.18; scene.add(projector);
+const poolTex=tex(256,256,(g,w)=>{
+  const gr=g.createRadialGradient(w/2,w/2,w*.08,w/2,w/2,w*.5);
+  gr.addColorStop(0,"rgba(255,255,255,.55)");
+  gr.addColorStop(.55,"rgba(255,255,255,.18)");
+  gr.addColorStop(1,"rgba(255,255,255,0)");
+  g.fillStyle=gr; g.fillRect(0,0,w,w);
+});
+const pool=new THREE.Mesh(new THREE.PlaneGeometry(11,11),
+  new THREE.MeshBasicMaterial({map:poolTex,transparent:true,blending:THREE.AdditiveBlending,depthWrite:false}));
+pool.rotation.x=-Math.PI/2; pool.position.y=.015; scene.add(pool);
+const speakerLamp=new THREE.PointLight(0xffffff,0,6.5); speakerLamp.position.set(0,3.2,0); scene.add(speakerLamp);
+const caseGroup=new THREE.Group(); caseGroup.position.y=1.74; scene.add(caseGroup);
+const caseCore=new THREE.Mesh(new THREE.IcosahedronGeometry(.3,1),
+  new THREE.MeshStandardMaterial({color:0x1b3a6b,emissive:0x1b3a6b,emissiveIntensity:.5,
+    roughness:.25,metalness:.2,transparent:true,opacity:.9}));
+caseGroup.add(caseCore);
+const caseShell=new THREE.Mesh(new THREE.IcosahedronGeometry(.56,1),
+  new THREE.MeshBasicMaterial({color:0x1b3a6b,wireframe:true,transparent:true,opacity:.22}));
+caseGroup.add(caseShell);
+
+/* ================================================================ people */
+const doctors={};
+function makeDoctor(cfg,angle){
+  const g=new THREE.Group(), B=cfg.build||1;
+  const skin=new THREE.MeshStandardMaterial({color:new THREE.Color(cfg.skin),roughness:.66});
+  const coat=new THREE.MeshStandardMaterial({color:0xfdfefd,roughness:.72});
+  const scrub=new THREE.MeshStandardMaterial({color:new THREE.Color(cfg.scrub),roughness:.82});
+  const hairM=new THREE.MeshStandardMaterial({color:new THREE.Color(cfg.hair),roughness:.88});
+  const dark=new THREE.MeshStandardMaterial({color:0x27322f,roughness:.45,metalness:.25});
+  const hips=new THREE.Mesh(new THREE.CylinderGeometry(.34*B,.3*B,.3,22),scrub); hips.position.y=1.04; g.add(hips);
+  const torso=new THREE.Mesh(new THREE.CylinderGeometry(.37*B,.34*B,.78,26),coat);
+  torso.position.y=1.56; torso.castShadow=true; g.add(torso);
+  const sh=new THREE.Mesh(new THREE.SphereGeometry(.38*B,24,16),coat);
+  sh.scale.set(1,.56,.82); sh.position.y=1.9; sh.castShadow=true; g.add(sh);
+  const vn=new THREE.Mesh(new THREE.CylinderGeometry(.2,.24,.4,20),scrub);
+  vn.position.set(0,1.78,.05); g.add(vn);
+  [-1,1].forEach(s=>{const lap=new THREE.Mesh(new THREE.BoxGeometry(.11,.46,.035),coat);
+    lap.position.set(s*.13,1.72,.3*B); lap.rotation.z=s*-.2; g.add(lap);});
+  const collar=new THREE.Mesh(new THREE.TorusGeometry(.19,.045,8,24,Math.PI),coat);
+  collar.position.set(0,1.98,.04); collar.rotation.x=-.5; g.add(collar);
+  const badge=new THREE.Mesh(new THREE.BoxGeometry(.13,.18,.012),
+    new THREE.MeshStandardMaterial({color:0xffffff,roughness:.5}));
+  badge.position.set(.03,1.6,.33*B); g.add(badge);
+  const bar=new THREE.Mesh(new THREE.BoxGeometry(.11,.03,.014),new THREE.MeshStandardMaterial({color:new THREE.Color(cfg.scrub)}));
+  bar.position.set(.03,1.66,.337*B); g.add(bar);
+  const steth=new THREE.Mesh(new THREE.TorusGeometry(.22,.02,8,40,Math.PI*1.3),dark);
+  steth.position.set(0,2.0,.1); steth.rotation.x=.5; steth.rotation.z=Math.PI; g.add(steth);
+  const bell=new THREE.Mesh(new THREE.CylinderGeometry(.05,.05,.028,16),
+    new THREE.MeshStandardMaterial({color:0xd8e0de,roughness:.22,metalness:.8}));
+  bell.position.set(-.2,1.72,.26); bell.rotation.x=Math.PI/2; g.add(bell);
+  const neck=new THREE.Mesh(new THREE.CylinderGeometry(.095,.115,.17,16),skin); neck.position.y=2.1; g.add(neck);
+
+  const head=new THREE.Group(); head.position.y=2.33; g.add(head);
+  const skull=new THREE.Mesh(new THREE.SphereGeometry(.27,32,26),skin);
+  skull.scale.set(.98,1.12,.96); skull.castShadow=true; head.add(skull);
+  const jaw=new THREE.Mesh(new THREE.SphereGeometry(.21,24,18),skin);
+  jaw.scale.set(1,.72,.95); jaw.position.set(0,-.1,.02); head.add(jaw);
+  const nose=new THREE.Mesh(new THREE.ConeGeometry(.043,.1,12),skin);
+  nose.rotation.x=Math.PI/2.1; nose.position.set(0,-.02,.255); head.add(nose);
+  [-1,1].forEach(s=>{const e=new THREE.Mesh(new THREE.SphereGeometry(.05,14,12),skin);
+    e.scale.set(.55,1,.75); e.position.set(s*.262,-.02,0); head.add(e);});
+  const eyes=[-1,1].map(s=>{
+    const grp=new THREE.Group(); grp.position.set(s*.097,.04,.222); head.add(grp);
+    const w=new THREE.Mesh(new THREE.SphereGeometry(.048,16,14),new THREE.MeshStandardMaterial({color:0xfbfcfb,roughness:.25}));
+    w.scale.set(1,.92,.5); grp.add(w);
+    const iris=new THREE.Mesh(new THREE.SphereGeometry(.024,14,12),new THREE.MeshStandardMaterial({color:0x2d1f16,roughness:.25}));
+    iris.position.z=.03; grp.add(iris);
+    const gl=new THREE.Mesh(new THREE.SphereGeometry(.008,8,6),new THREE.MeshBasicMaterial({color:0xffffff}));
+    gl.position.set(.012,.012,.05); grp.add(gl); return grp;});
+  const brows=[-1,1].map(s=>{const b=new THREE.Mesh(new THREE.BoxGeometry(.1,.02,.027),hairM);
+    b.position.set(s*.097,.115,.232); b.rotation.z=s*.06; head.add(b); return b;});
+  const mouth=new THREE.Mesh(new THREE.SphereGeometry(.053,18,14),
+    new THREE.MeshStandardMaterial({color:0x6b3330,roughness:.5}));
+  mouth.scale.set(1,.26,.5); mouth.position.set(0,-.145,.222); head.add(mouth);
+
+  const hs=cfg.hairStyle||"crop";
+  if(hs!=="turban"&&hs!=="cap"){
+    const cap=new THREE.Mesh(new THREE.SphereGeometry(.281,32,22,0,Math.PI*2,0,Math.PI*0.56),hairM);
+    cap.scale.set(1,1.16,.99); cap.position.y=.012; head.add(cap);}
+  if(hs==="bun"){const bun=new THREE.Mesh(new THREE.SphereGeometry(.115,18,16),hairM);
+    bun.position.set(0,.07,-.25); head.add(bun);}
+  if(hs==="long"){const back=new THREE.Mesh(new THREE.SphereGeometry(.26,22,18),hairM);
+    back.scale.set(1,1.45,.78); back.position.set(0,-.2,-.09); head.add(back);}
+  if(hs==="cap"){
+    const sc=new THREE.Mesh(new THREE.SphereGeometry(.288,30,20,0,Math.PI*2,0,Math.PI*0.6),
+      new THREE.MeshStandardMaterial({color:0x8dc3ba,roughness:.85}));
+    sc.position.y=.01; head.add(sc);
+    const band=new THREE.Mesh(new THREE.TorusGeometry(.272,.028,8,30),
+      new THREE.MeshStandardMaterial({color:0x76ada4,roughness:.85}));
+    band.rotation.x=Math.PI/2; band.position.y=.035; head.add(band);}
+  if(hs==="turban"){
+    const tc=new THREE.Color(cfg.scrub).offsetHSL(0,-.05,.14);
+    const t1=new THREE.Mesh(new THREE.SphereGeometry(.315,30,22,0,Math.PI*2,0,Math.PI*0.62),
+      new THREE.MeshStandardMaterial({color:tc,roughness:.9}));
+    t1.scale.set(1.02,1.12,1); t1.position.y=.035; head.add(t1);
+    for(let i=0;i<3;i++){
+      const wrap=new THREE.Mesh(new THREE.TorusGeometry(.3-i*.03,.033,8,30,Math.PI*1.6),
+        new THREE.MeshStandardMaterial({color:new THREE.Color(tc).offsetHSL(0,0,-i*.03),roughness:.9}));
+      wrap.rotation.x=Math.PI/2; wrap.rotation.z=-.5+i*.3; wrap.position.y=.02+i*.07; head.add(wrap);}}
+  if(cfg.accessory==="glasses"){
+    const gm=new THREE.MeshStandardMaterial({color:0x33403d,roughness:.35,metalness:.5});
+    [-1,1].forEach(s=>{
+      const l=new THREE.Mesh(new THREE.TorusGeometry(.07,.011,8,24),gm);
+      l.position.set(s*.097,.04,.25); head.add(l);
+      const arm=new THREE.Mesh(new THREE.BoxGeometry(.16,.012,.012),gm);
+      arm.position.set(s*.2,.045,.155); arm.rotation.y=s*.6; head.add(arm);});
+    const br=new THREE.Mesh(new THREE.BoxGeometry(.06,.011,.011),gm);
+    br.position.set(0,.045,.252); head.add(br);}
+  if(cfg.accessory==="bindi"){
+    const b=new THREE.Mesh(new THREE.CircleGeometry(.02,16),
+      new THREE.MeshStandardMaterial({color:0x9c2b2b,roughness:.4}));
+    b.position.set(0,.13,.249); head.add(b);}
+
+  const arms=[-1,1].map(s=>{
+    const a=new THREE.Group(); a.position.set(s*.4*B,1.92,0); g.add(a);
+    const up=new THREE.Mesh(new THREE.CylinderGeometry(.085,.078,.46,14),coat);
+    up.position.set(s*.03,-.23,0); up.rotation.z=s*.22; a.add(up);
+    const fore=new THREE.Group(); fore.position.set(s*.08,-.45,0); a.add(fore);
+    const f=new THREE.Mesh(new THREE.CylinderGeometry(.072,.066,.46,14),coat);
+    f.position.set(0,-.14,.16); f.rotation.x=1.12; fore.add(f);
+    const hand=new THREE.Mesh(new THREE.SphereGeometry(.08,16,14),skin);
+    hand.scale.set(1,.8,1.15); hand.position.set(0,-.24,.37); fore.add(hand);
+    return {root:a,fore};});
+
+  const chair=new THREE.Mesh(new THREE.CylinderGeometry(.4,.3,.86,22),
+    new THREE.MeshStandardMaterial({color:0xdfe6e4,roughness:.7}));
+  chair.position.y=.43; chair.castShadow=true; g.add(chair);
+  const cb=new THREE.Mesh(new THREE.BoxGeometry(.6,.66,.1),
+    new THREE.MeshStandardMaterial({color:new THREE.Color(cfg.scrub).offsetHSL(0,-.25,.32),roughness:.8}));
+  cb.position.set(0,1.45,-.42); g.add(cb);
+  const ring=new THREE.Mesh(new THREE.TorusGeometry(.64,.026,10,52),new THREE.MeshBasicMaterial({color:0xd7dedc}));
+  ring.rotation.x=-Math.PI/2; ring.position.y=.02; g.add(ring);
+  const nameplate=new THREE.Mesh(new THREE.BoxGeometry(.66,.03,.18),
+    new THREE.MeshStandardMaterial({color:0xeef2f1,roughness:.5}));
+  nameplate.position.set(0,1.15,-.05); g.add(nameplate);
+
+  const radius=TABLE_R+.95;
+  g.position.set(Math.cos(angle)*radius,0,Math.sin(angle)*radius);
+  g.rotation.y=Math.PI/2-angle+Math.PI;
+  scene.add(g);
+  return {cfg,group:g,head,mouth,eyes,brows,arms,ring,phase:Math.random()*6.28,blinkAt:1+Math.random()*3};
+}
+function tryAvatar(d){
+  if(!d.cfg.avatar) return;
+  new THREE.GLTFLoader().load("models/"+d.cfg.avatar,gltf=>{
+    const m=gltf.scene;
+    m.traverse(o=>{if(o.isMesh){o.castShadow=true;o.receiveShadow=true;}});
+    // auto fit: scale any model to 1.75 m tall and stand it on the floor
+    const box=new THREE.Box3().setFromObject(m), size=new THREE.Vector3(), c=new THREE.Vector3();
+    box.getSize(size); box.getCenter(c);
+    const target=1.75*(d.cfg.avatarScale||1);
+    const k=size.y>0?target/size.y:1;
+    m.scale.setScalar(k);
+    m.position.set(-c.x*k,-box.min.y*k+(d.cfg.avatarY||0),-c.z*k);
+    m.rotation.y=d.cfg.avatarRotY||0;
+    const keep=new Set([d.ring]);
+    d.group.children.forEach(ch=>{ if(!keep.has(ch)) ch.visible=false; });
+    const holder=new THREE.Group(); holder.add(m); d.group.add(holder);
+    d.avatar=holder;
+    // if a chair is wanted under a standing scan, show it again
+    if(!d.cfg.standing){
+      const chair=d.group.children.find(ch=>ch.geometry&&ch.geometry.type==="CylinderGeometry"&&Math.abs(ch.position.y-0.43)<0.01);
+      if(chair) chair.visible=true;
+    }
+    d.morphs=[];
+    m.traverse(o=>{ if(o.morphTargetDictionary) for(const kk in o.morphTargetDictionary)
+      if(/viseme_aa|mouthOpen|jawOpen/i.test(kk)) d.morphs.push([o,o.morphTargetDictionary[kk]]); });
+    // bring the arms down out of the T pose by posing the rig directly.
+    // clips on these scans are unreliable, so the skeleton is the safer handle.
+    d.bones={};
+    m.traverse(o=>{
+      if(!o.isBone) return;
+      const n=o.name.toLowerCase();
+      const side=/left|_l$|\.l$|l_/.test(n)?"l":(/right|_r$|\.r$|r_/.test(n)?"r":null);
+      if(!side) return;
+      if(/forearm|lowerarm|elbow/.test(n)) d.bones[side+"fore"]=d.bones[side+"fore"]||o;
+      else if(/shoulder|clavicle/.test(n)) d.bones[side+"clav"]=d.bones[side+"clav"]||o;
+      else if(/arm|upperarm/.test(n)) d.bones[side+"arm"]=d.bones[side+"arm"]||o;
+      else if(/hand/.test(n)) d.bones[side+"hand"]=d.bones[side+"hand"]||o;
+    });
+    const A=d.bones;
+    // three different rig conventions are in play, so do not trust local axes.
+    // aim each bone in world space instead: point the upper arm down, the
+    // forearm forward, and the hands end up resting on the table.
+    const aim=(bone,child,dir)=>{
+      if(!bone) return;
+      if(!child) return;
+      bone.updateWorldMatrix(true,true);
+      const wp=new THREE.Vector3(),cp=new THREE.Vector3();
+      bone.getWorldPosition(wp); child.getWorldPosition(cp);
+      const cur=cp.sub(wp).normalize(), tgt=dir.clone().normalize();
+      if(cur.lengthSq()<1e-6) return;
+      const rot=new THREE.Quaternion().setFromUnitVectors(cur,tgt);
+      const curW=new THREE.Quaternion(); bone.getWorldQuaternion(curW);
+      const parW=new THREE.Quaternion();
+      if(bone.parent) bone.parent.getWorldQuaternion(parW);
+      bone.quaternion.copy(parW.invert().multiply(rot.multiply(curW)));
+      bone.updateWorldMatrix(true,true);
+    };
+    const q0=d.group.quaternion;
+    const FWD=new THREE.Vector3(0,0,1).applyQuaternion(q0);
+    const RIGHT=new THREE.Vector3(1,0,0).applyQuaternion(q0);
+    const DOWN=new THREE.Vector3(0,-1,0);
+    const mix=(d1,a,d2,b,d3,c)=>d1.clone().multiplyScalar(a)
+      .add(d2.clone().multiplyScalar(b)).add(d3.clone().multiplyScalar(c));
+    const armRest=s2=>mix(DOWN,1,RIGHT,.20*s2,FWD,.10);
+    const foreRest=s2=>mix(DOWN,.42,FWD,.90,RIGHT,-.06*s2);
+    // aim the upper arm at the forearm, and the forearm at the hand, so twist
+    // helpers in the Character Creator rig cannot send an arm backwards
+    aim(A.larm,A.lfore,armRest(-1)); aim(A.lfore,A.lhand,foreRest(-1));
+    aim(A.rarm,A.rfore,armRest(1));  aim(A.rfore,A.rhand,foreRest(1));
+    d.rest={};
+    ["larm","lfore","rarm","rfore"].forEach(k=>{ if(A[k]) d.rest[k]=A[k].quaternion.clone(); });
+    // a second pose with the right hand up, for gesturing while speaking
+    aim(A.rarm,A.rfore,mix(DOWN,.62,FWD,.45,RIGHT,.32));
+    aim(A.rfore,A.rhand,mix(FWD,.92,DOWN,-.34,RIGHT,-.12));
+    d.raised={};
+    ["rarm","rfore"].forEach(k=>{ if(A[k]) d.raised[k]=A[k].quaternion.clone(); });
+    ["rarm","rfore"].forEach(k=>{ if(A[k]&&d.rest[k]) A[k].quaternion.copy(d.rest[k]); });
+    if(!A.larm&&!A.rarm&&gltf.animations&&gltf.animations.length){
+      d.mixer=new THREE.AnimationMixer(m);
+      d.mixer.clipAction(gltf.animations[0]).play();
+      d.mixer.update(1.4+Math.random()*2.2);
+    }
+    const tris=(()=>{let n=0;m.traverse(o=>{if(o.isMesh&&o.geometry&&o.geometry.index)n+=o.geometry.index.count/3;});return Math.round(n);})();
+    console.log("avatar",d.cfg.id,"loaded · height fitted to",target.toFixed(2),"m ·",tris,"triangles",
+      tris>60000?"· heavy, decimate in Blender before shipping six of these":"");
+  },undefined,e=>console.warn("avatar failed",d.cfg.id,e));
+}
+
+const arrowGroup=new THREE.Group(); scene.add(arrowGroup);
+let arrow=null;
+function setArrow(fromId,toId,stance){
+  arrowGroup.clear(); arrow=null;
+  if(!fromId) return;
+  const a=doctors[fromId].group.position.clone().setY(2.25);
+  const b=(toId==="panel")?new THREE.Vector3(0,1.9,0):doctors[toId].group.position.clone().setY(2.25);
+  const mid=a.clone().add(b).multiplyScalar(.5); mid.y+=toId==="panel"?.8:1.5;
+  const curve=new THREE.QuadraticBezierCurve3(a,mid,b);
+  const col=STANCE[stance]||STANCE.open;
+  arrowGroup.add(new THREE.Mesh(new THREE.TubeGeometry(curve,44,.016,8,false),
+    new THREE.MeshBasicMaterial({color:col,transparent:true,opacity:.42})));
+  const pip=new THREE.Mesh(new THREE.SphereGeometry(.07,14,12),new THREE.MeshBasicMaterial({color:col}));
+  const halo=new THREE.Mesh(new THREE.SphereGeometry(.14,14,12),
+    new THREE.MeshBasicMaterial({color:col,transparent:true,opacity:.2}));
+  arrowGroup.add(pip,halo);
+  arrow={curve,pip,halo,t0:performance.now()/1000};
+}
+
+/* ==================================================================== UI */
+const bubbleEl=document.createElement("div");
+bubbleEl.className="bubble";
+bubbleEl.innerHTML='<div class="who"><span class="nm"></span><span class="pill"></span></div><div class="tx"></div><div class="tail"></div>';
+$("bubbles").appendChild(bubbleEl);
+const plates={},axisDots={};
+let idx=0,auto=false,timer=null,typing=null;
+const stagesOf=()=>CASE.stages;
+const positionsAt=i=>{const p={...CASE.P0};for(let k=0;k<=i;k++)Object.assign(p,stagesOf()[k].pos||{});return p;};
+const stanceOf=v=>v>.6?"agree":v>=.5?"partial":"dissent";
+function relOf(a,b,p,i){
+  if(a===b)return "self";
+  const d=Math.abs(p[a]-p[b]);
+  let r=d<.2?"agree":d<.4?"partial":"dissent";
+  for(let k=0;k<=i;k++)(stagesOf()[k].override||[]).forEach(o=>{
+    if((o[0]===a&&o[1]===b)||(o[0]===b&&o[1]===a))r=o[2];});
+  return r;
+}
+function roleOf(id){ return CASE.roles[id]; }
+function shortName(id){ return doctors[id].cfg.name.replace("Dr. ",""); }
+
+function loadCase(ci){
+  CASE=CASES[ci];
+  [...$("cases").children].forEach((b,k)=>b.setAttribute("aria-pressed",k===ci));
+  $("casePt").textContent=CASE.patient;
+  $("caseTx").textContent=CASE.text;
+  $("hdA").textContent=CASE.argHead[0]; $("hdB").textContent=CASE.argHead[1];
+  const labs=$("labs"); labs.innerHTML="";
+  CASE.obs.forEach(([k,label,val])=>{
+    const s=document.createElement("span"); s.className="lab"; s.dataset.lab=k;
+    s.innerHTML=label+" <b>"+val+"</b>"; labs.appendChild(s);});
+  SEATS.forEach(id=>{ plates[id].innerHTML="<b>"+doctors[id].cfg.name+"</b><i>"+roleOf(id)+"</i>"; });
+  const dots=$("dots"); dots.innerHTML="";
+  CASE.stages.forEach((s,i)=>{const b=document.createElement("button");b.type="button";
+    b.setAttribute("aria-label",s.label);b.onclick=()=>{stop();setStage(i);};dots.appendChild(b);});
+  const vb=$("pVerdict");
+  vb.innerHTML="<b>"+CASE.verdict[0]+"</b><p>"+CASE.verdict[1]+"</p><div class='ds'>"+CASE.verdict[2]+"</div>";
+  PROC.setProcedure(CASE.procedure||null);
+  setStage(0);
+  stop(); auto=true; $("play").textContent="Pause"; advance();
+}
+function setStage(i){
+  const S=stagesOf();
+  idx=clamp(i,0,S.length-1);
+  const s=S[idx],pos=positionsAt(idx);
+  $("stageLabel").textContent=s.label;
+  $("panelStage").textContent="Exchange "+(idx+1)+" of "+S.length;
+  SEATS.forEach(id=>{
+    const d=doctors[id],st=stanceOf(pos[id]);
+    d.stance=st; d.speaking=(s.from===id);
+    d.ring.material.color.set(d.speaking?0x16201f:STANCE[st]);
+    plates[id].classList.toggle("speaking",d.speaking);
+    d.lookAt=s.from&&!d.speaking?doctors[s.from].group.position:null;
+    const dot=axisDots[id]; if(dot){ dot.style.left=(4+pos[id]*92)+"%"; dot.className="dot "+st; }
+  });
+  setArrow(s.from,s.to,s.stance);
+  if(s.text){
+    bubbleEl.className="bubble on "+(s.stance||"open");
+    bubbleEl.querySelector(".nm").textContent=doctors[s.from].cfg.name+" · "+roleOf(s.from);
+    const pill=bubbleEl.querySelector(".pill");
+    pill.textContent=s.pill||""; pill.style.display=s.pill?"":"none";
+    clearInterval(typing);
+    const tx=bubbleEl.querySelector(".tx"); let n=0;
+    typing=setInterval(()=>{n+=2;tx.textContent=s.text.slice(0,n);if(n>=s.text.length)clearInterval(typing);},12);
+  } else bubbleEl.className="bubble";
+  document.querySelectorAll("#labs .lab").forEach(l=>l.classList.toggle("hot",(s.cites||[]).includes(l.dataset.lab)));
+
+  $("pNow").textContent=s.now;
+  const ctx=$("pCtx"); ctx.innerHTML="";
+  for(let k=0;k<=idx;k++)(S[k].ctx||[]).forEach(c=>{
+    const d=document.createElement("div"); d.innerHTML="<i>+</i><span>"+c+"</span>"; ctx.appendChild(d);});
+  const A=$("pA"),Bl=$("pB"); A.innerHTML=""; Bl.innerHTML="";
+  for(let k=0;k<=idx;k++){
+    (S[k].a||[]).forEach(x=>{const li=document.createElement("li");li.textContent=x;A.appendChild(li);});
+    (S[k].b||[]).forEach(x=>{const li=document.createElement("li");li.textContent=x;Bl.appendChild(li);});
+  }
+  if(!A.children.length) A.innerHTML='<li>nothing yet</li>';
+  if(!Bl.children.length) Bl.innerHTML='<li>nothing yet</li>';
+  const st=$("pState"); st.innerHTML="";
+  SEATS.forEach(id=>{
+    const v=pos[id],cls=stanceOf(v);
+    const row=document.createElement("div"); row.className="srow";
+    row.innerHTML="<span>"+shortName(id)+"</span><span class='bar'><i class='"+cls+"' style='width:"+(v*100).toFixed(0)+"%'></i></span><span class='n'>"+Math.round(v*100)+"</span>";
+    st.appendChild(row);});
+  const pr=$("pPairs"); pr.innerHTML=""; const seen=new Set();
+  SEATS.forEach(a=>SEATS.forEach(b=>{
+    if(a===b)return; const kk=[a,b].sort().join("|"); if(seen.has(kk))return; seen.add(kk);
+    const r=relOf(a,b,pos,idx); if(r==="agree")return;
+    const el=document.createElement("div"); el.className="pair "+r;
+    el.innerHTML="<span>"+shortName(a)+" and "+shortName(b)+"</span><b>"+(r==="partial"?"partial":"disagree")+"</b>";
+    pr.appendChild(el);}));
+  if(!pr.children.length)pr.innerHTML="<div class='pair agree'><span>No open disagreement</span><b>agreed</b></div>";
+  const log=$("pLog"); log.innerHTML="";
+  for(let k=0;k<=idx;k++){
+    const g2=S[k]; if(!g2.from)continue;
+    const el=document.createElement("div"); el.className="logline "+(g2.stance||"open");
+    el.innerHTML="<b>"+shortName(g2.from)+" · "+(g2.pill||"")+"</b>"+g2.text;
+    log.appendChild(el);}
+  $("pVerdict").classList.toggle("on",s.k==="v");
+  renderDebateWindow();
+  [...$("dots").children].forEach((b,k)=>b.setAttribute("aria-current",k===idx));
+}
+function advance(){clearTimeout(timer);if(!auto)return;
+  timer=setTimeout(()=>{
+    if(idx>=stagesOf().length-1){ setStage(0); } else { setStage(idx+1); }
+    advance();
+  },idx>=stagesOf().length-1?9000:7200);}
+function stop(){auto=false;$("play").textContent="Play";clearTimeout(timer);}
+$("prev").onclick=()=>{stop();setStage(idx-1);};
+$("next").onclick=()=>{stop();setStage(idx+1);};
+$("play").onclick=()=>{auto=!auto;$("play").textContent=auto?"Pause":"Play";
+  if(auto){advance();}else clearTimeout(timer);};
+let orbit=false;
+$("orbit").onclick=function(){orbit=!orbit;this.setAttribute("aria-pressed",orbit);};
+let drag=false,lastX=0,lastY=0,yawV=0,pitchV=0;
+canvas.addEventListener("pointerdown",e=>{drag=true;lastX=e.clientX;lastY=e.clientY;});
+addEventListener("pointerup",()=>drag=false);
+addEventListener("pointermove",e=>{
+  if(!drag) return;
+  yawV+=(e.clientX-lastX)*.0030; pitchV+=(e.clientY-lastY)*.0022;
+  lastX=e.clientX; lastY=e.clientY;});
+canvas.addEventListener("wheel",e=>{
+  e.preventDefault();
+  CAM.dist=clamp(CAM.dist*(1+Math.sign(e.deltaY)*.09),CAM.minD,CAM.maxD);
+},{passive:false});
+
+/* ================================================================== boot */
+fetch("doctors.json").then(r=>r.json()).then(cfg=>{
+  const n=cfg.seats.length,spread=Math.PI*0.80,start=-Math.PI/2-spread/2;
+  cfg.seats.forEach((s,i)=>{
+    const angle=start+(spread*(i/(n-1)));
+    const d=makeDoctor(s,angle); doctors[s.id]=d; tryAvatar(d);
+    const p=document.createElement("div"); p.className="plate"; $("bubbles").appendChild(p); plates[s.id]=p;
+    axisDots[s.id]=null;
+  });
+  CASES.forEach((c,i)=>{const b=document.createElement("button");b.type="button";
+    b.textContent=c.tab;b.onclick=()=>loadCase(i);$("cases").appendChild(b);});
+  const cr=$("credits");
+  cr.innerHTML="<b>3D models, used under licence</b>"+(cfg._credits||[]).join("<br>");
+  window.__credits=cfg._credits||[];
+  window.__council={doctors,camera,scene,SEATS,CASES};
+  loadCase(0);
+  $("loading").classList.add("gone");
+  // the scanned theatre is the default scene
+  setTimeout(()=>{ const b=$("room"); if(b.getAttribute("aria-pressed")!=="true") b.click(); },300);
+}).catch(e=>{$("loading").textContent="COULD NOT LOAD doctors.json";console.error(e);});
+
+/* ================================================================ dispatch
+   A simulation of what ResQ does in parallel with the council: find where you
+   are, find who can reach you, and tell the receiving hospital what is coming.
+   Nothing here contacts a real service. Location is read from the browser only
+   if you allow it, and it is never sent anywhere. */
+const DISPATCH={log:[],running:false,t0:0,place:null};
+function dispStep(title,detail,state){
+  DISPATCH.log.push({t:((performance.now()-DISPATCH.t0)/1000),title,detail,state});
+  const ul=$("dispSteps");
+  ul.innerHTML=DISPATCH.log.map((l,i)=>
+    '<li class="'+(i===DISPATCH.log.length-1?"on":"done")+'"><i>'+
+    (i===DISPATCH.log.length-1?"▸":"✓")+'</i><span><b>'+l.title+'</b><span class="d">'+l.detail+'</span></span></li>').join("");
+  ul.scrollTop=ul.scrollHeight;
+}
+function runDispatch(){
+  if(DISPATCH.running) { $("dispatch").classList.toggle("on"); return; }
+  DISPATCH.running=true; DISPATCH.log=[]; DISPATCH.t0=performance.now();
+  $("dispatch").classList.add("on"); $("callBtn").classList.add("live");
+  $("callBtn").textContent="Dispatch running";
+  dispStep("Emergency declared",CASE.patient+" · "+CASE.tab,"on");
+  const seq=[
+    [900,()=>dispStep("Asking for your location","Browser permission requested. If you refuse, dispatch falls back to the clinic address on file.")],
+    [2600,()=>{
+      if(!navigator.geolocation){ dispStep("Location","Not available in this browser. Using the clinic address on file."); return; }
+      navigator.geolocation.getCurrentPosition(
+        pos=>{ DISPATCH.place=[pos.coords.latitude,pos.coords.longitude];
+          dispStep("Location fixed",DISPATCH.place[0].toFixed(4)+", "+DISPATCH.place[1].toFixed(4)+
+            " · accurate to about "+Math.round(pos.coords.accuracy)+" m"); },
+        err=>dispStep("Location refused",err.message+". Using the clinic address on file."),
+        {enableHighAccuracy:true,timeout:8000});
+    }],
+    [5200,()=>dispStep("Searching for units","Querying ambulances and first responders within 8 km of the fix.")],
+    [7000,()=>dispStep("Units found","3 simulated units: a two wheeler responder at 4 min, a basic ambulance at 9 min, an advanced life support unit at 14 min.")],
+    [9000,()=>dispStep("Unit accepted","The advanced unit is requested for an arrest; the two wheeler responder is sent ahead to start the AED.")],
+    [11200,()=>dispStep("Searching hospitals","Filtering by what this case needs, not by distance alone.")],
+    [13200,()=>dispStep("Receiving hospital chosen","Simulated hospital B: cardiac capable, 14 min. The nearer hospital A is skipped because it cannot treat this.")],
+    [15400,()=>dispStep("Hospital briefed","Pre-arrival note sent: presentation, time of collapse, what has been given, what has been withheld and why.")],
+    [17400,()=>dispStep("Nearby responders alerted","Trained volunteers within 500 m notified, with the AED location.")],
+    [19400,()=>{ dispStep("Dispatch complete","The council keeps running. Every revision it makes is pushed to the hospital before arrival.");
+      $("callBtn").classList.remove("live"); $("callBtn").textContent="Dispatch log"; DISPATCH.running=false; }]
+  ];
+  seq.forEach(([ms,fn])=>setTimeout(fn,ms));
+}
+$("callBtn").onclick=runDispatch;
+
+/* ============================================ live debate window and report */
+function debateData(){
+  const S=stagesOf(), pos=positionsAt(idx), turns=[];
+  for(let k=0;k<=idx;k++){
+    const g=S[k]; if(!g.from) continue;
+    turns.push({who:doctors[g.from].cfg.name,role:roleOf(g.from),stance:g.stance||"open",
+      pill:g.pill||"",text:g.text,cites:(g.cites||[]).map(c=>{
+        const el=document.querySelector('#labs .lab[data-lab="'+c+'"]');
+        return el?el.textContent.trim():c;})});
+  }
+  const ctx=[],args={a:[],b:[]};
+  for(let k=0;k<=idx;k++){
+    (S[k].ctx||[]).forEach(c=>ctx.push(c));
+    (S[k].a||[]).forEach(x=>args.a.push(x));
+    (S[k].b||[]).forEach(x=>args.b.push(x));
+  }
+  const stands=SEATS.map(id=>({name:doctors[id].cfg.name,role:roleOf(id),
+    conf:Math.round(pos[id]*100),stance:stanceOf(pos[id])}));
+  const pairs=[],seen=new Set();
+  SEATS.forEach(a=>SEATS.forEach(b=>{
+    if(a===b)return; const kk=[a,b].sort().join("|"); if(seen.has(kk))return; seen.add(kk);
+    const r=relOf(a,b,pos,idx); if(r!=="agree") pairs.push({a:doctors[a].cfg.name,b:doctors[b].cfg.name,r});
+  }));
+  return {turns,ctx,args,stands,pairs,now:S[idx].now,label:S[idx].label,
+          atVerdict:S[idx].k==="v"};
+}
+function renderDebateWindow(){
+  if(!$("debateWin").classList.contains("on")) return;
+  const d=debateData();
+  $("dwTitle").textContent=CASE.patient;
+  $("dwSub").textContent=d.label+"  ·  exchange "+(idx+1)+" of "+stagesOf().length;
+  $("dwTurns").innerHTML=d.turns.map(t=>
+    '<div class="dwTurn '+t.stance+'"><div class="h"><b>'+t.who+'</b><span>'+t.role+'</span>'+
+    (t.pill?'<em>'+t.pill+'</em>':'')+'</div><p>'+t.text+'</p>'+
+    (t.cites.length?'<div class="cites">cites: '+t.cites.join(" · ")+'</div>':'')+'</div>').join("")
+    || '<div class="dwTurn open"><p>'+d.now+'</p></div>';
+  const proc=CASE.procedure;
+  $("dwSide").innerHTML=
+    '<div class="dwCard"><h3>What is happening</h3><p style="margin:0;font-size:.88rem;line-height:1.5">'+d.now+'</p></div>'+
+    (proc?'<div class="dwCard"><h3>'+proc.title+'</h3><ol>'+proc.steps.map(x=>"<li>"+x+"</li>").join("")+'</ol></div>':'')+
+    '<div class="dwCard"><h3>Where each one stands</h3>'+d.stands.map(s2=>
+      '<div style="display:flex;justify-content:space-between;font-size:.84rem;padding:3px 0">'+
+      '<span>'+s2.name+' <span style="color:var(--dim)">'+s2.role+'</span></span><b>'+s2.conf+'</b></div>').join("")+'</div>'+
+    (d.pairs.length?'<div class="dwCard"><h3>Open disagreement</h3>'+d.pairs.map(p2=>
+      '<div style="font-size:.82rem;padding:2px 0">'+p2.a+' and '+p2.b+
+      ' <b style="float:right;color:var(--'+(p2.r==="partial"?"partial":"dissent")+')">'+p2.r+'</b></div>').join("")+'</div>':'');
+}
+$("dw").onclick=()=>{ $("debateWin").classList.add("on"); renderDebateWindow(); };
+$("dwClose").onclick=()=>$("debateWin").classList.remove("on");
+addEventListener("keydown",e=>{ if(e.key==="Escape") $("debateWin").classList.remove("on"); });
+
+function downloadReport(){
+  const now=new Date(), S=stagesOf(), last=S.length-1, pos=positionsAt(last);
+  const esc=x=>String(x==null?"":x).replace(/&/g,"&amp;").replace(/</g,"&lt;");
+  const lab=c=>{const el=document.querySelector('#labs .lab[data-lab="'+c+'"]');return el?el.textContent.trim():c;};
+  const rows=CASE.obs.map(o=>"<tr><td>"+esc(o[1])+"</td><td><b>"+esc(o[2])+"</b></td></tr>").join("");
+  // every exchange, not only the ones played so far
+  const turns=S.filter(g=>g.from).map((g,i)=>
+    '<div class="turn '+(g.stance||"open")+'"><div class="th"><b>'+esc(doctors[g.from].cfg.name)+'</b>'+
+    '<span>'+esc(roleOf(g.from))+'</span>'+(g.pill?'<em>'+esc(g.pill)+'</em>':'')+
+    (g.to?'<span class="to">to '+esc(g.to==="panel"?"the panel":doctors[g.to].cfg.name)+'</span>':'')+'</div>'+
+    '<p>'+esc(g.text)+'</p><div class="why">'+esc(g.now)+'</div>'+
+    ((g.cites||[]).length?'<div class="cites">cites '+esc((g.cites||[]).map(lab).join(" · "))+'</div>':'')+'</div>').join("");
+  const ctx=S.flatMap(g=>g.ctx||[]).map(c=>"<li>"+esc(c)+"</li>").join("");
+  const argA=S.flatMap(g=>g.a||[]), argB=S.flatMap(g=>g.b||[]);
+  // the spectrum belongs here, in the record, rather than over the live scene
+  const spec=SEATS.map(id=>{
+    const v=pos[id], st=stanceOf(v);
+    return '<tr><td>'+esc(doctors[id].cfg.name)+'<br><span class="sm">'+esc(roleOf(id))+'</span></td>'+
+      '<td class="bar"><span style="width:'+(v*100).toFixed(0)+'%" class="'+st+'"></span></td>'+
+      '<td><b>'+Math.round(v*100)+'</b></td><td class="sm">'+st+'</td></tr>';}).join("");
+  const shifts=S.filter(g=>g.pos&&Object.keys(g.pos).length).map(g=>
+    "<li>"+esc(g.label)+": "+Object.entries(g.pos).map(([k,v])=>
+      esc(doctors[k].cfg.name)+" moves to "+Math.round(v*100)).join(", ")+"</li>").join("");
+  const pairs=[],seen=new Set();
+  SEATS.forEach(a=>SEATS.forEach(b=>{
+    if(a===b)return; const kk=[a,b].sort().join("|"); if(seen.has(kk))return; seen.add(kk);
+    const r=relOf(a,b,pos,last);
+    pairs.push("<tr><td>"+esc(doctors[a].cfg.name)+" and "+esc(doctors[b].cfg.name)+"</td><td class='"+r+"'>"+r+"</td></tr>");}));
+  const disp=DISPATCH.log.length
+    ? "<table>"+DISPATCH.log.map(l=>"<tr><td class='sm'>"+l.t.toFixed(1)+" s</td><td><b>"+esc(l.title)+
+      "</b><br><span class='sm'>"+esc(l.detail)+"</span></td></tr>").join("")+"</table>"
+    : "<p class='sm'>Dispatch was not run for this session.</p>";
+  const creds=(window.__credits||[]).map(c=>"<li>"+esc(c)+"</li>").join("");
+  const html='<!doctype html><meta charset="utf-8"><title>Council deliberation · '+esc(CASE.patient)+'</title>'+
+  '<style>body{font-family:Georgia,serif;max-width:48em;margin:40px auto;padding:0 22px;color:#16201f;line-height:1.55}'+
+  'h1{font-size:1.7rem;font-weight:400;margin:0 0 3px}h2{font-size:.72rem;font-family:ui-monospace,monospace;'+
+  'letter-spacing:.12em;text-transform:uppercase;color:#5e6d6b;border-bottom:1px solid #d7dedc;padding-bottom:5px;'+
+  'margin:30px 0 12px}.meta{font-family:ui-monospace,monospace;font-size:.7rem;letter-spacing:.08em;'+
+  'text-transform:uppercase;color:#5e6d6b;margin-bottom:20px}table{border-collapse:collapse;width:100%}'+
+  'td{padding:5px 6px 5px 0;border-bottom:1px solid #eaefee;font-size:.88rem;vertical-align:top}'+
+  '.sm{font-family:ui-monospace,monospace;font-size:.68rem;color:#5e6d6b}'+
+  '.turn{border-left:3px solid #d7dedc;padding:0 0 15px 14px;margin-bottom:6px}'+
+  '.turn.agree{border-color:#0f6e6b}.turn.partial{border-color:#b07314}.turn.dissent{border-color:#5b4ba8}'+
+  '.th{font-family:system-ui,sans-serif;font-size:.8rem;display:flex;gap:9px;flex-wrap:wrap;align-items:baseline}'+
+  '.th b{font-size:.98rem}.th span{font-family:ui-monospace,monospace;font-size:.65rem;color:#5e6d6b;'+
+  'text-transform:uppercase;letter-spacing:.06em}.th em{font-style:normal;font-family:ui-monospace,monospace;'+
+  'font-size:.62rem;border:1px solid currentColor;padding:1px 5px}.turn.agree .th em{color:#0f6e6b}'+
+  '.turn.partial .th em{color:#b07314}.turn.dissent .th em{color:#5b4ba8}'+
+  '.turn p{margin:5px 0 0}.why{font-size:.8rem;color:#5e6d6b;margin-top:5px;font-style:italic}'+
+  '.cites{font-family:ui-monospace,monospace;font-size:.68rem;color:#5e6d6b;margin-top:4px}'+
+  'td.bar{width:46%}td.bar span{display:block;height:13px;background:#0f6e6b}td.bar span.partial{background:#b07314}'+
+  'td.bar span.dissent{background:#5b4ba8}td.agree{color:#0f6e6b}td.partial{color:#b07314}td.dissent{color:#5b4ba8}'+
+  'ol,ul{padding-left:20px}li{margin-bottom:5px;font-size:.88rem}.note{border-left:3px solid #5b4ba8;padding-left:12px}'+
+  '.foot{font-size:.74rem;color:#5e6d6b;border-top:1px solid #d7dedc;margin-top:32px;padding-top:12px}</style>'+
+  '<h1>'+esc(CASE.patient)+'</h1>'+
+  '<div class="meta">Council deliberation · '+esc(CASE.tab)+' · generated '+now.toLocaleString("en-IN")+'</div>'+
+  '<p>'+esc(CASE.text)+'</p>'+
+  '<h2>1 · Presentation and observations</h2><table>'+rows+'</table>'+
+  '<h2>2 · The council</h2><table>'+SEATS.map(id=>"<tr><td>"+esc(doctors[id].cfg.name)+
+    "</td><td>"+esc(roleOf(id))+"</td><td class='sm'>opened at "+Math.round(CASE.P0[id]*100)+"</td></tr>").join("")+'</table>'+
+  '<h2>3 · The exchange, in full</h2>'+turns+
+  '<h2>4 · Context established</h2><ol>'+ctx+'</ol>'+
+  '<h2>5 · Arguments</h2><p><b>'+esc(CASE.argHead[0])+'</b></p><ul>'+
+    (argA.length?argA.map(x=>"<li>"+esc(x)+"</li>").join(""):"<li>none recorded</li>")+'</ul>'+
+  '<p><b>'+esc(CASE.argHead[1])+'</b></p><ul>'+
+    (argB.length?argB.map(x=>"<li>"+esc(x)+"</li>").join(""):"<li>none recorded</li>")+'</ul>'+
+  '<h2>6 · Diagnostic spectrum at close</h2>'+
+  '<p class="sm">'+esc(CASE.axis[0])+' &nbsp;&larr;&nbsp; scale &nbsp;&rarr;&nbsp; '+esc(CASE.axis[1])+'</p>'+
+  '<table>'+spec+'</table>'+
+  (shifts?'<h2>7 · Positions that moved</h2><ol>'+shifts+'</ol>':'')+
+  '<h2>8 · Agreement matrix at close</h2><table>'+pairs.join("")+'</table>'+
+  (CASE.procedure?'<h2>9 · '+esc(CASE.procedure.title)+'</h2><ol>'+
+    CASE.procedure.steps.map(x=>"<li>"+esc(x)+"</li>").join("")+'</ol>':'')+
+  '<h2>10 · Verdict</h2><p><b>'+esc(CASE.verdict[0])+'</b></p><p>'+esc(CASE.verdict[1])+'</p>'+
+  '<p class="note">'+esc(CASE.verdict[2])+'</p>'+
+  '<h2>11 · Dispatch</h2>'+disp+
+  (creds?'<h2>12 · Models used</h2><ul>'+creds+'</ul>':'')+
+  '<div class="foot">Generated by the ResQ council chamber prototype on '+now.toISOString()+
+  '. This is an illustrative deliberation, not a medical record and not a treatment decision. '+
+  'Dispatch entries are simulated and no service was contacted. In an emergency in India, dial 108.</div>';
+  const a=document.createElement("a");
+  a.href=URL.createObjectURL(new Blob([html],{type:"text/html"}));
+  a.download="council-"+CASE.id+"-"+now.toISOString().slice(0,16).replace(/[:T]/g,"")+".html";
+  document.body.appendChild(a); a.click(); a.remove();
+}
+$("dl").onclick=downloadReport;
+
+/* ====================================================== procedure window */
+const PROC=(function(){
+  const cv=$("procCanvas");
+  const r2=new THREE.WebGLRenderer({canvas:cv,antialias:true,alpha:true});
+  r2.setPixelRatio(Math.min(devicePixelRatio||1,2));
+  r2.outputEncoding=THREE.sRGBEncoding;
+  const sc=new THREE.Scene(); sc.background=new THREE.Color(0xeef2f1);
+  const cam=new THREE.PerspectiveCamera(38,1.8,.1,40);
+  cam.position.set(1.7,1.35,2.5); cam.lookAt(0,.55,0);
+  sc.add(new THREE.HemisphereLight(0xffffff,0xccd6d2,1.1));
+  const k2=new THREE.DirectionalLight(0xfff6e6,1.0); k2.position.set(3,5,4); sc.add(k2);
+  const mat=new THREE.MeshStandardMaterial({color:0xdfe6e3,roughness:.9});
+  const pad=new THREE.Mesh(new THREE.CylinderGeometry(1.5,1.5,.04,40),mat);
+  pad.position.y=-.02; sc.add(pad);
+  let mixer=null,loaded=false,steps=[],stepIdx=0,stepAt=0,rate=110;
+  new THREE.GLTFLoader().load("models/doctor_administering_cpr/scene.gltf",g=>{
+    const m=g.scene;
+    const box=new THREE.Box3().setFromObject(m),size=new THREE.Vector3(),c=new THREE.Vector3();
+    box.getSize(size); box.getCenter(c);
+    const k=1.6/Math.max(size.y,.001);
+    m.scale.setScalar(k); m.position.set(-c.x*k,-box.min.y*k,-c.z*k);
+    sc.add(m); loaded=true;
+    if(g.animations&&g.animations.length){
+      mixer=new THREE.AnimationMixer(m); mixer.clipAction(g.animations[0]).play();
+    }
+    console.log("CPR model loaded, animations:",g.animations.length);
+  },undefined,e=>{ console.warn("CPR model failed",e); $("procCanvasWrap").style.display="none"; });
+  function setProcedure(p){
+    const el=$("proc");
+    if(!p){ el.classList.remove("on"); return; }
+    el.classList.add("on");
+    const live=(p.rate||0)>0;
+    $("procCanvasWrap").style.display=live?"":"none";
+    $("metro").style.display=live?"":"none";
+    $("procTitle").textContent=p.title;
+    rate=p.rate||110;
+    steps=p.steps; stepIdx=0; stepAt=performance.now()/1000;
+    const ul=$("procSteps"); ul.innerHTML="";
+    steps.forEach((t,i)=>{const li=document.createElement("li");
+      li.innerHTML="<i>"+String(i+1).padStart(2,"0")+"</i><span>"+t+"</span>";ul.appendChild(li);});
+    mark();
+  }
+  function mark(){
+    [...$("procSteps").children].forEach((li,i)=>{
+      li.classList.toggle("on",i===stepIdx); li.classList.toggle("done",i<stepIdx);});
+    $("procCount").textContent=(stepIdx+1)+" of "+steps.length;
+  }
+  let compressions=0;
+  function tick(now,dt){
+    if(!$("proc").classList.contains("on")) return;
+    if(mixer) mixer.update(dt);
+    const t=now/1000;
+    if(steps.length && t-stepAt>5.5){ stepIdx=(stepIdx+1)%steps.length; stepAt=t; mark(); }
+    const beat=(t*rate/60)%1;
+    $("metroDot").style.transform="scale("+(1+(1-beat)*.55).toFixed(2)+")";
+    $("metroDot").style.opacity=(0.45+(1-beat)*0.55).toFixed(2);
+    const w=$("procCanvasWrap").clientWidth,h=$("procCanvasWrap").clientHeight;
+    if(cv.width!==w||cv.height!==h){ r2.setSize(w,h,false); cam.aspect=w/h; cam.updateProjectionMatrix(); }
+    r2.render(sc,cam);
+  }
+  return {setProcedure,tick};
+})();
+
+/* ============================================ optional scanned room, non commercial */
+let scannedRoom=null;
+const ROOMFIT={span:12.6,x:0,y:0,z:-2.6,clear:4.3,clearH:2.6};
+window.ROOMFIT=ROOMFIT;
+$("room").onclick=function(){
+  const on=this.getAttribute("aria-pressed")!=="true";
+  this.setAttribute("aria-pressed",on);
+  if(on&&!scannedRoom){
+    this.textContent="Loading room";
+    new THREE.GLTFLoader().load("models/operating_room/scene.gltf",g=>{
+      const m=g.scene;
+      // A photogrammetry scan has no idea where its floor is: the bounding box
+      // minimum is usually a stray point. Sample the vertices, find the height
+      // band that holds the floor, measure the footprint of the room just above
+      // it, then scale and drop the room so the council sits inside it.
+      const pts=[],v=new THREE.Vector3();
+      m.updateMatrixWorld(true);
+      m.traverse(o=>{
+        if(!o.isMesh||!o.geometry||!o.geometry.attributes.position) return;
+        const pa=o.geometry.attributes.position, step=Math.max(1,Math.floor(pa.count/6000));
+        for(let i=0;i<pa.count;i+=step){ v.fromBufferAttribute(pa,i); o.localToWorld(v); pts.push(v.clone()); }
+      });
+      const hist={};
+      pts.forEach(q=>{ const b=Math.round(q.y*4)/4; hist[b]=(hist[b]||0)+1; });
+      const bands=Object.entries(hist).map(([y,c])=>[+y,c/pts.length]).sort((a,b)=>a[0]-b[0]);
+      const floorBand=(bands.find(b=>b[1]>=.03)||bands[0])[0];
+      const inner=pts.filter(q=>q.y>floorBand+.15&&q.y<floorBand+2.4);
+      const bb=new THREE.Box3();
+      (inner.length>40?inner:pts).forEach(q=>bb.expandByPoint(q));
+      const isz=new THREE.Vector3(), ic=new THREE.Vector3();
+      bb.getSize(isz); bb.getCenter(ic);
+      const k=ROOMFIT.span/Math.max(isz.x,isz.z,.001);
+      m.scale.setScalar(k);
+      m.position.set(-ic.x*k+ROOMFIT.x,-floorBand*k+ROOMFIT.y,-ic.z*k+ROOMFIT.z);
+      console.log("room fitted: floor band",floorBand.toFixed(2),
+        "interior",isz.x.toFixed(1)+" x "+isz.z.toFixed(1),"scale",k.toFixed(3));
+      m.traverse(o=>{if(o.isMesh)o.receiveShadow=true;});
+      scannedRoom=m; scene.add(m);
+      PROCROOM.visible=false;
+      // the scan has trolleys and machines standing exactly where the council sits.
+      // hide any piece whose footprint falls inside the ring, below head height.
+      let culled=0;
+      m.traverse(o=>{
+        if(!o.isMesh||!o.geometry) return;
+        o.geometry.computeBoundingBox();
+        const bb=o.geometry.boundingBox.clone().applyMatrix4(o.matrixWorld);
+        const c2=new THREE.Vector3(); bb.getCenter(c2);
+        const sz=new THREE.Vector3(); bb.getSize(sz);
+        if(Math.hypot(c2.x,c2.z)<ROOMFIT.clear && bb.min.y<ROOMFIT.clearH && Math.max(sz.x,sz.z)<6){
+          o.visible=false; culled++;
+        }
+      });
+      // a photogrammetry scan is louder than any interface. Desaturate and darken
+      // it so the five people and their labels sit in front of it, not in it.
+      m.traverse(o=>{
+        if(!o.isMesh||!o.material) return;
+        (Array.isArray(o.material)?o.material:[o.material]).forEach(mat=>{
+          if(mat.__muted) return; mat.__muted=true;
+          if(mat.color){
+            const hsl={}; mat.color.getHSL(hsl);
+            mat.color.setHSL(hsl.h,hsl.s*.42,hsl.l*.74);
+          }
+          if("roughness" in mat) mat.roughness=Math.min(1,(mat.roughness||.8)+.15);
+        });
+      });
+      console.log("room fitted, pieces hidden inside the council ring:",culled);
+      this.textContent="Scanned room";
+      console.warn("Charite operating room is CC-BY-NC 4.0: non commercial use only. Do not ship this in a product or an investor demo.");
+    },undefined,e=>{this.textContent="Room failed";console.warn(e);});
+  } else if(scannedRoom){ scannedRoom.visible=on; PROCROOM.visible=!on; }
+  else if(!on){ PROCROOM.visible=true; }
+};
+$("cred").onclick=function(){
+  const on=this.getAttribute("aria-pressed")!=="true";
+  this.setAttribute("aria-pressed",on);
+  $("credits").classList.toggle("on",on);
+};
+
+
+function animateDoctors(t,dt){
+  SEATS.forEach(id=>{
+    const d=doctors[id]; if(!d)return;
+    const sp=d.speaking;
+    d.group.position.y=Math.sin(t*1.4+d.phase)*.012+(sp?.025:0);
+    d.group.rotation.x+=((sp?.1:0)-d.group.rotation.x)*.06;
+    let ty=0,tx=0;
+    if(d.lookAt){const l=d.group.worldToLocal(d.lookAt.clone());ty=Math.atan2(l.x,l.z)*.42;}
+    else if(sp){ty=Math.sin(t*1.1)*.05;tx=-.04;}
+    d.head.rotation.y+=(ty-d.head.rotation.y)*.05;
+    d.head.rotation.x+=((tx+Math.sin(t*.9+d.phase)*.02)-d.head.rotation.x)*.05;
+    const open=sp?(.16+Math.abs(Math.sin(t*11+d.phase))*.7):.055;
+    d.mouth.scale.y+=(open-d.mouth.scale.y)*.3; d.mouth.scale.z=.5+d.mouth.scale.y*.18;
+    if(d.morphs&&d.morphs.length)d.morphs.forEach(([o,i])=>{o.morphTargetInfluences[i]=sp?clamp(d.mouth.scale.y,0,1):0;});
+    if(d.avatar&&(!d.morphs||!d.morphs.length))d.avatar.rotation.x=sp?Math.sin(t*5.5)*.025:0;
+    if(d.mixer) d.mixer.update(dt*(sp?.75:.32));
+    if(d.rest&&d.raised){
+      const amt=sp?(.55+Math.sin(t*2.4+d.phase)*.45):0;
+      d.gest=(d.gest===undefined?0:d.gest)+(amt-(d.gest||0))*.08;
+      ["rarm","rfore"].forEach(k=>{
+        const b=d.bones[k];
+        if(b&&d.rest[k]&&d.raised[k]) b.quaternion.copy(d.rest[k]).slerp(d.raised[k],d.gest);
+      });
+    }
+    if(t>d.blinkAt){const k=(t-d.blinkAt)/.12;
+      d.eyes.forEach(e=>e.scale.y=k<1?.1:.92); if(k>1)d.blinkAt=t+2+Math.random()*3.5;}
+    const bt=d.stance==="dissent"?.098:(d.stance==="agree"?.128:.115);
+    d.brows.forEach(b=>{b.position.y+=(bt-b.position.y)*.05;});
+    const gest=sp?-.55+Math.sin(t*3.1)*.2:0;
+    d.arms[1].fore.rotation.x+=(gest-d.arms[1].fore.rotation.x)*.08;
+    project(d.group.position,plates[id],3.12);
+  });
+}
+
+/* ====================================================================== FILM
+   The app films itself. A shot list drives the camera, every panel is redrawn
+   into a 1920x1080 canvas for the camera, and MediaRecorder writes a webm.
+   Nothing is screen captured, so the result is identical on every run. */
+const FILM=(function(){
+  const W=1920,H=1080;
+  const cv=$("filmCanvas"), g=cv.getContext("2d");
+  let active=false,rec=null,chunks=[],t0=0,shotI=-1,recording=false;
+  const SER='"Source Serif 4",Georgia,serif', SAN='"Archivo",system-ui,sans-serif', MON='"JetBrains Mono",monospace';
+  const INK="#0E1420", CREAM="#F6F7F9", TEAL="#7FA6E8", AMBER="#E3B567", VIOLET="#B3A0E6", RED="#E8685C", DIM="#9fb3ae";
+
+  const ez=t=>t<.5?2*t*t:1-Math.pow(-2*t+2,2)/2;
+  const lerp=(a,b,k)=>a+(b-a)*k;
+  const fade=(t,inD,outD,dur)=>Math.min(1,t/inD)*Math.min(1,Math.max(0,(dur-t))/outD);
+  function rr(x,y,w,h,r){g.beginPath();g.moveTo(x+r,y);g.arcTo(x+w,y,x+w,y+h,r);g.arcTo(x+w,y+h,x,y+h,r);
+    g.arcTo(x,y+h,x,y,r);g.arcTo(x,y,x+w,y,r);g.closePath();}
+  function wrap(text,x,y,maxW,lh,limit){
+    const words=String(text).split(" ");let line="",n=0;
+    for(const w of words){
+      const test=line?line+" "+w:w;
+      if(g.measureText(test).width>maxW&&line){ g.fillText(line,x,y+n*lh); line=w; n++; if(limit&&n>=limit)break; }
+      else line=test;
+    }
+    if(!limit||n<limit) g.fillText(line,x,y+n*lh);
+    return (n+1)*lh;
+  }
+  function panel(x,y,w,h,alpha,accent){
+    g.save(); g.globalAlpha=alpha;
+    g.shadowColor="rgba(0,0,0,.55)"; g.shadowBlur=42; g.shadowOffsetY=16;
+    g.fillStyle="rgba(252,253,252,.97)"; rr(x,y,w,h,3); g.fill();
+    g.shadowColor="transparent";
+    if(accent){ g.fillStyle=accent; g.fillRect(x,y,w,4); }
+    g.restore();
+  }
+  function label(txt,x,y,size,color,font,align){
+    g.save(); g.font=size+"px "+(font||MON); g.fillStyle=color; g.textAlign=align||"left";
+    g.fillText(txt,x,y); g.restore();
+  }
+
+  /* persistent marks: ResQ, and the Orocare line */
+  function marks(a){
+    g.save(); g.globalAlpha=a;
+    g.font="600 38px "+SER; g.fillStyle=CREAM; g.textAlign="left";
+    g.fillText("ResQ",88,92);
+    g.fillStyle=TEAL; g.fillRect(88,106,46,2);
+    g.textAlign="right";
+    g.font="400 15px "+MON; g.fillStyle="rgba(246,247,249,.52)";
+    g.fillText("POWERED BY OROCARE",W-88,H-92);
+    g.restore();
+  }
+  /* name tags projected onto the film, so you always know who is who */
+  const _v=new THREE.Vector3();
+  function nameTags(a,speaking){
+    g.save();
+    SEATS.forEach(id=>{
+      const d=doctors[id]; if(!d) return;
+      _v.copy(d.group.position); _v.y+=2.98; _v.project(camera);
+      if(_v.z>1) return;
+      const x=(_v.x*.5+.5)*W, y=(-_v.y*.5+.5)*H;
+      if(x<110||x>W-110||y<120||y>H-150) return;
+      const on=id===speaking;
+      const name=d.cfg.name, role=roleOf(id).toUpperCase();
+      g.font="600 21px "+SAN; const w1=g.measureText(name).width;
+      g.font="400 13px "+MON; const w2=g.measureText(role).width;
+      const w=Math.max(w1,w2)+34, h=56;
+      g.globalAlpha=a*(on?1:.82);
+      g.fillStyle=on?"rgba(27,58,107,.94)":"rgba(10,15,24,.72)";
+      rr(x-w/2,y-h,w,h,3); g.fill();
+      if(on){ g.fillStyle=TEAL; g.fillRect(x-w/2,y-h,w,3); }
+      g.textAlign="center";
+      g.fillStyle=on?"#fff":"rgba(246,247,249,.95)"; g.font="600 21px "+SAN;
+      g.fillText(name,x,y-28);
+      g.fillStyle=on?"rgba(198,216,245,.95)":"rgba(170,182,200,.8)"; g.font="400 13px "+MON;
+      g.fillText(role,x,y-11);
+      g.globalAlpha=a*(on?.9:.5); g.strokeStyle=on?TEAL:"rgba(170,182,200,.5)"; g.lineWidth=1;
+      g.beginPath(); g.moveTo(x,y); g.lineTo(x,y+16); g.stroke();
+    });
+    g.restore();
+  }
+  function letterbox(){
+    g.fillStyle="#080C14"; g.fillRect(0,0,W,74); g.fillRect(0,H-74,W,74);
+  }
+  function vignette(){
+    const vg=g.createRadialGradient(W/2,H*.52,H*.28,W/2,H*.52,H*.95);
+    vg.addColorStop(0,"rgba(8,12,20,0)"); vg.addColorStop(1,"rgba(8,12,20,.62)");
+    g.fillStyle=vg; g.fillRect(0,0,W,H);
+  }
+
+  /* ---- panels redrawn for the camera ---- */
+  function caseCard(t,dur){
+    const a=fade(t,.7,.6,dur), sl=(1-ez(Math.min(1,t/.7)))*-70;
+    g.save(); g.globalAlpha=a; g.translate(sl,0);
+    panel(96,300,520,420,1,RED);
+    g.fillStyle=INK; g.font="600 34px "+SAN; g.fillText(CASE.patient,128,360);
+    g.fillStyle="#5e6d6b"; g.font="22px "+SAN;
+    wrap(CASE.text,128,400,456,30,5);
+    let y=550; g.font="19px "+MON;
+    CASE.obs.slice(0,5).forEach(o=>{
+      g.fillStyle="#eef2f1"; g.fillRect(128,y-22,456,32);
+      g.fillStyle="#5e6d6b"; g.fillText(o[1],138,y);
+      g.fillStyle=INK; g.textAlign="right"; g.fillText(o[2],572,y); g.textAlign="left";
+      y+=40;
+    });
+    g.restore();
+  }
+  function lowerThird(stage,t,dur){
+    if(!stage||!stage.from) return;
+    const a=fade(t,.5,.5,dur), rise=(1-ez(Math.min(1,t/.5)))*40;
+    const col=stage.stance==="agree"?TEAL:stage.stance==="partial"?AMBER:stage.stance==="dissent"?VIOLET:DIM;
+    g.save(); g.globalAlpha=a; g.translate(0,rise);
+    const x=140,y=H-330,w=980;
+    g.fillStyle="rgba(10,15,24,.9)"; rr(x,y,w,186,3); g.fill();
+    g.fillStyle=col; g.fillRect(x,y,5,186);
+    g.fillStyle=CREAM; g.font="600 34px "+SAN;
+    g.fillText(doctors[stage.from].cfg.name,x+34,y+54);
+    g.fillStyle=col; g.font="19px "+MON;
+    g.fillText(roleOf(stage.from).toUpperCase()+(stage.pill?"   ·   "+stage.pill.toUpperCase():""),x+34,y+84);
+    g.fillStyle="rgba(236,242,240,.96)"; g.font="25px "+SAN;
+    const chars=Math.floor(Math.min(1,t/2.2)*stage.text.length);
+    wrap(stage.text.slice(0,chars),x+34,y+128,w-70,34,2);
+    g.restore();
+  }
+  function ctxPanel(t,dur,lines,title,accent){
+    const a=fade(t,.6,.6,dur);
+    g.save(); g.globalAlpha=a;
+    const x=W-640,y=240,w=520,h=120+lines.length*46;
+    panel(x,y,w,h,1,accent||TEAL);
+    g.fillStyle="#5e6d6b"; g.font="19px "+MON; g.fillText(title,x+32,y+54);
+    lines.forEach((l,i)=>{
+      const la=Math.min(1,Math.max(0,(t-.5-i*.45)/.5));
+      g.globalAlpha=a*la;
+      g.fillStyle=accent||TEAL; g.font="20px "+MON; g.fillText("+",x+32,y+100+i*46);
+      g.fillStyle=INK; g.font="22px "+SAN; wrap(l,x+60,y+100+i*46,w-96,28,1);
+    });
+    g.restore();
+  }
+  function cprInset(t,dur){
+    const a=fade(t,.6,.6,dur);
+    const pc=document.getElementById("procCanvas");
+    g.save(); g.globalAlpha=a;
+    const x=120,y=H-560,w=460,h=300;
+    panel(x,y,w,h,1,RED);
+    g.fillStyle=RED; g.fillRect(x,y,w,44);
+    g.fillStyle="#fff"; g.font="600 19px "+MON; g.fillText("COMPRESSION ONLY CPR",x+20,y+29);
+    if(pc&&pc.width){ g.drawImage(pc,x+14,y+58,w-28,h-80); }
+    const beat=(t*110/60)%1;
+    g.fillStyle=RED; g.globalAlpha=a*(.4+(1-beat)*.6);
+    g.beginPath(); g.arc(x+w-40,y+22,9+(1-beat)*5,0,6.283); g.fill();
+    g.restore();
+  }
+  function dispatchPanel(t,dur){
+    const a=fade(t,.6,.6,dur);
+    const steps=[["Emergency declared","62 M, cardiac arrest"],["Location fixed","accurate to 12 m"],
+      ["Units found","responder 4 min · ALS 14 min"],["Unit accepted","ALS requested, responder ahead"],
+      ["Hospital chosen","cardiac capable, 14 min"],["Hospital briefed","what was given, what was withheld"],
+      ["Volunteers alerted","trained responders within 500 m"]];
+    g.save(); g.globalAlpha=a;
+    const x=W-700,y=200,w=580,h=140+steps.length*58;
+    panel(x,y,w,h,1,RED);
+    g.fillStyle=RED; g.font="600 22px "+MON; g.fillText("DISPATCH",x+32,y+56);
+    g.fillStyle="#9aa6a3"; g.font="17px "+MON; g.fillText("SIMULATION",x+w-150,y+56);
+    steps.forEach((st,i)=>{
+      const la=Math.min(1,Math.max(0,(t-.6-i*.65)/.45));
+      g.globalAlpha=a*la;
+      g.fillStyle=la>.9?TEAL:"#c9cfcb"; g.font="22px "+MON; g.fillText(la>.9?"✓":"▸",x+32,y+116+i*58);
+      g.fillStyle=INK; g.font="600 23px "+SAN; g.fillText(st[0],x+68,y+112+i*58);
+      g.fillStyle="#5e6d6b"; g.font="19px "+SAN; g.fillText(st[1],x+68,y+138+i*58);
+    });
+    g.restore();
+  }
+  function reportPanel(t,dur){
+    const a=fade(t,.7,.7,dur), sl=(1-ez(Math.min(1,t/.8)))*60;
+    g.save(); g.globalAlpha=a; g.translate(sl,0);
+    const x=W/2-430,y=150,w=860,h=760;
+    panel(x,y,w,h,1,TEAL);
+    g.fillStyle=INK; g.font="400 42px "+SER; g.fillText("Council deliberation",x+48,y+92);
+    g.fillStyle="#5e6d6b"; g.font="19px "+MON;
+    g.fillText("62 M · CARDIAC ARREST · FULL RECORD",x+48,y+126);
+    const secs=["1 · Presentation and observations","2 · The council and where each opened",
+      "3 · The exchange, in full","4 · Context established","5 · Arguments on both sides",
+      "6 · Diagnostic spectrum at close","7 · Positions that moved","8 · Agreement matrix",
+      "9 · Compression only CPR","10 · Verdict","11 · Dispatch log","12 · Models used"];
+    secs.forEach((sx,i)=>{
+      const la=Math.min(1,Math.max(0,(t-.6-i*.14)/.4));
+      g.globalAlpha=a*la;
+      g.fillStyle="#eef2f1"; g.fillRect(x+48,y+168+i*48,w-96,38);
+      g.fillStyle=TEAL; g.fillRect(x+48,y+168+i*48,3,38);
+      g.fillStyle=INK; g.font="22px "+SAN; g.fillText(sx,x+68,y+194+i*48);
+    });
+    g.globalAlpha=a; g.fillStyle="#5e6d6b"; g.font="19px "+MON;
+    g.fillText("DOWNLOADED AS ONE FILE",x+48,y+h-36);
+    g.restore();
+  }
+  function titleCard(t,dur,big,small,sub){
+    const a=fade(t,1,1,dur);
+    g.save(); g.globalAlpha=a;
+    g.fillStyle="rgba(8,12,20,.72)"; g.fillRect(0,0,W,H);
+    g.textAlign="center";
+    const rise=(1-ez(Math.min(1,t/.9)))*18;
+    g.translate(0,rise);
+    g.fillStyle=CREAM; g.font="600 126px "+SER;
+    g.fillText(big,W/2,H/2-4);
+    g.fillStyle=TEAL; g.fillRect(W/2-44,H/2+34,88,3);
+    g.fillStyle="rgba(240,243,248,.92)"; g.font="500 30px "+SAN;
+    g.letterSpacing="0.01em";
+    g.fillText(small,W/2,H/2+104);
+    if(sub){ g.fillStyle=DIM; g.font="400 19px "+MON; g.fillText(sub,W/2,H/2+152); }
+    g.restore();
+  }
+
+  /* ---- the shot list ---- */
+  const VO=[
+    "In an emergency, the first two minutes decide everything.",
+    "Most of them happen with one trained pair of hands in the room, and survival falls by up to ten per cent every minute.",
+    "A man collapses in the waiting area. Unresponsive, not breathing normally, no pulse.",
+    "ResQ convenes a council. Five specialists read the same case, in parallel, in seconds.",
+    "Emergency medicine opens. Those gasps are agonal. This is an arrest.",
+    "Cardiology answers on quality. Five to six centimetres, a hundred to a hundred and twenty a minute.",
+    "And the guidance beside you shows exactly that. Compressions only, uninterrupted.",
+    "Pharmacology holds the drug box. Nothing in a dental emergency kit treats an arrest.",
+    "While they argue, dispatch is already running. Location, units, and a hospital that can treat this.",
+    "Every exchange is written down. Twelve sections, one file.",
+    "ResQ. Fast enough to help, slow enough to be right."
+  ];
+  let voiceOn=true, spokenFor=-1;
+  function speak(i){
+    if(!voiceOn||!window.speechSynthesis||!VO[i]) return;
+    const u=new SpeechSynthesisUtterance(VO[i]);
+    const vs=speechSynthesis.getVoices();
+    const pick=vs.find(v=>/en-GB/i.test(v.lang)&&/female|google|kate|serena/i.test(v.name))
+            ||vs.find(v=>/en-GB/i.test(v.lang))||vs.find(v=>/en-IN/i.test(v.lang))
+            ||vs.find(v=>/en-US/i.test(v.lang));
+    if(pick) u.voice=pick;
+    u.rate=.97; u.pitch=1.0; u.volume=1;
+    speechSynthesis.speak(u);
+  }
+  function subtitle(i,t,dur){
+    const line=VO[i]; if(!line) return;
+    const a=fade(t,.4,.5,dur);
+    g.save(); g.globalAlpha=a*.96;
+    g.textAlign="center"; g.font="500 25px "+SAN;
+    const words=line.split(" "); let l1=line,l2="";
+    if(g.measureText(line).width>1180){
+      for(let k=words.length-1;k>0;k--){
+        const a1=words.slice(0,k).join(" ");
+        if(g.measureText(a1).width<=1180){ l1=a1; l2=words.slice(k).join(" "); break; }
+      }
+    }
+    const y=H-150;
+    [l1,l2].filter(Boolean).forEach((ln,k)=>{
+      const w=g.measureText(ln).width;
+      g.fillStyle="rgba(8,12,20,.72)";
+      rr(W/2-w/2-18,y+k*40-27,w+36,36,2); g.fill();
+      g.fillStyle="rgba(246,247,249,.97)"; g.fillText(ln,W/2,y+k*40);
+    });
+    g.restore();
+  }
+  const SHOTS=[
+    /* 1 · cold open, 5s: low wide, slow truck across the empty theatre */
+    {d:4.5,tags:false,cam:{a:{dist:9.5,yaw:-1.35,pitch:.08,ty:1.5},b:{dist:8.6,yaw:-.95,pitch:.14,ty:1.7}},stage:0,
+     draw:(t,d)=>titleCard(t,d,"ResQ","Guidance in the first two minutes","")},
+    /* 2 · the problem, 5s: rising crane */
+    {d:5,tags:false,cam:{a:{dist:8.6,yaw:-.95,pitch:.14,ty:1.7},b:{dist:11.5,yaw:-.55,pitch:.46,ty:2.1}},stage:0,
+     draw:(t,d)=>ctxPanel(t,d,["One trained pair of hands in the room",
+       "Survival falls 7 to 10 per cent a minute","The answer has to arrive in seconds"],"THE PROBLEM",RED)},
+    /* 3 · the case, 5s: drop back down onto the table */
+    {d:4.5,cam:{a:{dist:11,yaw:-.45,pitch:.42,ty:2.0},b:{dist:7.6,yaw:-.12,pitch:.18,ty:1.78}},stage:0,
+     draw:(t,d)=>caseCard(t,d)},
+    /* 4 · hero orbit, 7s: a full pass at head height */
+    {d:6.5,cam:{a:{dist:6.8,yaw:-.1,pitch:.12,ty:1.82},b:{dist:6.8,yaw:6.18,pitch:.12,ty:1.82}},stage:0,
+     draw:(t,d)=>ctxPanel(t,d,["Five specialists, one case","Each reads it alone first",
+       "Nobody waits for the discussion"],"THE COUNCIL")},
+    /* 5 · opening argument, 6s: push past a shoulder */
+    {d:6,cam:{a:{dist:6.6,yaw:-.95,pitch:.1,ty:1.86},b:{dist:4.6,yaw:-.58,pitch:.06,ty:1.9}},stage:1,
+     draw:(t,d)=>lowerThird(stagesOf()[1],t,d)},
+    /* 6 · the counter, 6s: reverse angle, opposite side */
+    {d:6,cam:{a:{dist:5.9,yaw:1.05,pitch:.1,ty:1.9},b:{dist:4.6,yaw:.55,pitch:.05,ty:1.9}},stage:2,
+     draw:(t,d)=>lowerThird(stagesOf()[2],t,d)},
+    /* 7 · CPR, 8s: slow arc while the demonstration plays */
+    {d:7,cam:{a:{dist:6.4,yaw:.25,pitch:.08,ty:1.84},b:{dist:5.6,yaw:-.55,pitch:.16,ty:1.84}},stage:3,
+     draw:(t,d)=>{ lowerThird(stagesOf()[3],t,d); cprInset(t-.8,d-.8); }},
+    /* 8 · the hold, 6s: low angle looking up */
+    {d:6,cam:{a:{dist:5.2,yaw:-1.4,pitch:.02,ty:1.98},b:{dist:4.5,yaw:-1.05,pitch:.09,ty:1.96}},stage:4,
+     draw:(t,d)=>{ lowerThird(stagesOf()[4],t,d);
+       ctxPanel(t-1.2,d-1.2,["Kit drugs withheld","Nitrate is never given in an arrest"],"A HOLD",RED); }},
+    /* 9 · dispatch, 5.5s: pull wide and up */
+    {d:5,tags:false,cam:{a:{dist:6.4,yaw:.3,pitch:.18,ty:1.9},b:{dist:10.4,yaw:.95,pitch:.5,ty:2.2}},stage:5,
+     draw:(t,d)=>dispatchPanel(t,d)},
+    /* 10 · the record, 5s */
+    {d:4.5,tags:false,cam:{a:{dist:10.8,yaw:1.25,pitch:.46,ty:2.1},b:{dist:12.4,yaw:1.75,pitch:.36,ty:1.98}},stage:6,
+     draw:(t,d)=>reportPanel(t,d)},
+    /* 11 · close, 5s: settle back to the wide */
+    {d:5,tags:false,cam:{a:{dist:10,yaw:-.5,pitch:.34,ty:1.98},b:{dist:7.8,yaw:-.05,pitch:.2,ty:1.84}},stage:6,
+     draw:(t,d)=>titleCard(t,d,"ResQ","Fast enough to help, slow enough to be right","")}
+  ];
+  const TOTAL=SHOTS.reduce((a,s)=>a+s.d,0);
+
+  function start(record,withVoice){
+    if(active) return;
+    loadCase(0); stop();
+    active=true; recording=!!record; shotI=-1; t0=performance.now();
+    $("filmWrap").classList.add("on"); $("filmBar").classList.add("on");
+    $("filmStatus").textContent=record?"Recording":"Playing";
+    renderer.setSize(W,H,false); camera.aspect=W/H; camera.updateProjectionMatrix();
+    if(record){
+      chunks=[];
+      const stream=cv.captureStream(30);
+      // the narration is spoken by the browser, which cannot be routed into a
+      // canvas stream. Offer to capture this tab's audio and mux it in.
+      if(withVoice&&navigator.mediaDevices&&navigator.mediaDevices.getDisplayMedia){
+        navigator.mediaDevices.getDisplayMedia({video:true,audio:true}).then(ds=>{
+          const at=ds.getAudioTracks()[0];
+          ds.getVideoTracks().forEach(t=>t.stop());
+          if(at){ stream.addTrack(at); $("filmStatus").textContent="Recording with voice"; }
+          else $("filmStatus").textContent="Recording, no audio was shared";
+        }).catch(()=>{ $("filmStatus").textContent="Recording, video only"; });
+      }
+      const types=["video/webm;codecs=vp9","video/webm;codecs=vp8","video/webm"];
+      const mime=types.find(t=>window.MediaRecorder&&MediaRecorder.isTypeSupported(t));
+      if(!mime){ $("filmStatus").textContent="Recording not supported, playing instead"; recording=false; return; }
+      rec=new MediaRecorder(stream,{mimeType:mime,videoBitsPerSecond:8000000});
+      rec.ondataavailable=e=>{ if(e.data.size) chunks.push(e.data); };
+      rec.onstop=()=>{
+        const blob=new Blob(chunks,{type:"video/webm"});
+        const a=document.createElement("a");
+        a.href=URL.createObjectURL(blob); a.download="resq-council-film.webm";
+        document.body.appendChild(a); a.click(); a.remove();
+        $("filmStatus").textContent="Saved resq-council-film.webm";
+      };
+      rec.start();
+    }
+  }
+  function finish(){
+    if(!active) return;
+    active=false; spokenFor=-1;
+    if(window.speechSynthesis) speechSynthesis.cancel();
+    if(rec&&rec.state!=="inactive") rec.stop(); else $("filmStatus").textContent="Film ended";
+    rec=null;
+    $("filmWrap").classList.remove("on");
+    setTimeout(()=>$("filmBar").classList.remove("on"),3200);
+    resize();
+    auto=true; $("play").textContent="Pause"; advance();
+  }
+  function tick(now){
+    if(!active) return false;
+    const t=(now-t0)/1000;
+    if(t>=TOTAL){ finish(); return false; }
+    let acc=0,i=0;
+    while(i<SHOTS.length-1&&acc+SHOTS[i].d<=t){ acc+=SHOTS[i].d; i++; }
+    const sh=SHOTS[i], lt=t-acc, k=ez(Math.min(1,lt/sh.d));
+    if(i!==shotI){
+      shotI=i;
+      if(sh.stage!==undefined&&sh.stage!==idx) setStage(sh.stage);
+      if(spokenFor!==i){ spokenFor=i; speak(i); }
+    }
+    camera.position.set(
+      Math.sin(lerp(sh.cam.a.yaw,sh.cam.b.yaw,k))*Math.cos(lerp(sh.cam.a.pitch,sh.cam.b.pitch,k))*lerp(sh.cam.a.dist,sh.cam.b.dist,k),
+      lerp(sh.cam.a.ty,sh.cam.b.ty,k)+Math.sin(lerp(sh.cam.a.pitch,sh.cam.b.pitch,k))*lerp(sh.cam.a.dist,sh.cam.b.dist,k),
+      Math.cos(lerp(sh.cam.a.yaw,sh.cam.b.yaw,k))*Math.cos(lerp(sh.cam.a.pitch,sh.cam.b.pitch,k))*lerp(sh.cam.a.dist,sh.cam.b.dist,k));
+    camera.lookAt(0,lerp(sh.cam.a.ty,sh.cam.b.ty,k)-.25,0);
+    renderer.render(scene,camera);
+    g.clearRect(0,0,W,H);
+    g.filter="saturate(.92) contrast(1.06) brightness(1.02)";
+    g.drawImage(renderer.domElement,0,0,W,H);
+    g.filter="none";
+    vignette();
+    if(sh.tags!==false) nameTags(Math.min(1,lt/.6),sh.stage!==undefined&&stagesOf()[sh.stage]?stagesOf()[sh.stage].from:null);
+    sh.draw(lt,sh.d);
+    subtitle(shotI,lt,sh.d);
+    letterbox();
+    marks(1);
+    g.fillStyle="rgba(244,246,246,.3)"; g.fillRect(92,H-44,(W-184)*(t/TOTAL),2);
+    return true;
+  }
+  $("film").onclick=()=>start(false);
+  $("rec").onclick=()=>start(true,false);
+  $("recv").onclick=()=>start(true,true);
+  $("filmStop").onclick=finish;
+  return {tick,isActive:()=>active,finish};
+})();
+
+/* ================================================================== loop */
+const v=new THREE.Vector3();
+function project(pos,el,offY){
+  v.copy(pos); v.y+=offY; v.project(camera);
+  const vis=v.z<1; el.style.display=vis?"":"none"; if(!vis)return;
+  const w=$("stage").clientWidth,h=$("stage").clientHeight;
+  let px=(v.x*.5+.5)*w,py=(-v.y*.5+.5)*h;
+  if(el===bubbleEl){px=clamp(px,400,w-180);py=clamp(py,120,h-190);}
+  el.style.left=px+"px"; el.style.top=py+"px";
+}
+function resize(){const w=$("stage").clientWidth,h=$("stage").clientHeight;
+  renderer.setSize(w,h,false);camera.aspect=w/h;camera.updateProjectionMatrix();}
+addEventListener("resize",resize); resize();
+const t0=performance.now();
+function frame(now){
+  requestAnimationFrame(frame);
+  const t=(now-t0)/1000;
+  const dt=Math.min(.05,(now-lastT)/1000);
+  if(FILM.isActive()){ animateDoctors(t,dt); FILM.tick(now); lastT=now; return; }
+  CAM.yaw+=yawV; yawV*=.88; CAM.pitch=clamp(CAM.pitch+pitchV,-.05,.85); pitchV*=.88;
+  const a=CAM.yaw+(orbit?t*.08:0), ph=CAM.pitch;
+  camera.position.set(
+    Math.sin(a)*Math.cos(ph)*CAM.dist,
+    LOOK.y+Math.sin(ph)*CAM.dist+Math.sin(t*.25)*.06,
+    Math.cos(a)*Math.cos(ph)*CAM.dist);
+  camera.lookAt(LOOK);
+  fan.rotation.y=t*2.6;
+  caseGroup.rotation.y=t*.3; caseShell.rotation.x=t*.22; caseShell.rotation.z=-t*.16;
+  caseCore.scale.setScalar(1+Math.sin(t*2.2)*.05);
+  caseGroup.position.y=1.74+Math.sin(t*1.1)*.04;
+  animateDoctors(t,dt);
+  const spk=stagesOf()[idx]&&stagesOf()[idx].from;
+  if(spk&&doctors[spk]){
+    speakerLamp.position.lerp(doctors[spk].group.position.clone().setY(3.1),.12);
+    speakerLamp.intensity+=(5.5-speakerLamp.intensity)*.08;
+  } else speakerLamp.intensity+=(0-speakerLamp.intensity)*.08;
+  const s=stagesOf()[idx];
+  if(s&&s.from&&doctors[s.from])project(doctors[s.from].group.position,bubbleEl,3.45);
+  else bubbleEl.style.display="none";
+  if(arrow){const q=((now/1000-arrow.t0)*.5)%1;const p=arrow.curve.getPoint(ease(q));
+    arrow.pip.position.copy(p);arrow.halo.position.copy(p);
+    arrow.halo.scale.setScalar(1+Math.sin(now/180)*.25);}
+  renderer.render(scene,camera);
+  PROC.tick(now,dt); lastT=now;
+  if(DISPATCH.t0){
+    const el=Math.floor((now-DISPATCH.t0)/1000);
+    $("dispClock").textContent=String(Math.floor(el/60)).padStart(2,"0")+":"+String(el%60).padStart(2,"0");
+  }
+}
+let lastT=performance.now();
+requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>
